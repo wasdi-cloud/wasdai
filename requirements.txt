@@ -1,0 +1,4 @@
+llama-index
+llama-index-readers-file
+unstructured[all-docs]
+python-magic-bin; sys_platform == 'win32'

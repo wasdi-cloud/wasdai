@@ -4,6 +4,9 @@ venv/
 ENV/
 env/
 
+# test dataset folder
+test_dataset/
+
 # Python cache
 __pycache__/
 *.py[cod]

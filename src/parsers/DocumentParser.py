@@ -9,21 +9,27 @@ from llama_index.core import SimpleDirectoryReader
 from llama_index.readers.file import UnstructuredReader
 from llama_index.core.schema import Document
 from unstructured.partition.auto import partition
+from pathlib import Path
+from llama_index.core.node_parser import (MarkdownNodeParser, SentenceSplitter)
 
 oLogger = logging.getLogger(__name__)
 
 
 class DocumentParser:
 
+    s_oSTRUCTURED_FORMATS = { ".pdf", ".docx", ".rtf"}  # formats where we bypass the LLamaIndex wrapper to preserve structure and metadata
+    s_oHEADER_AWARE_FORMATS = { ".md", ".rst" } # formats handled by LlamaIndex wrapperwith header-aware splitting
+
     def __init__(self, sFolderPath: str):
         self.sFolderPath = sFolderPath
 
 
-    def parseStructured(self, sFilePath: str, bDebugContent: bool = False) -> list[Document]:
+    def _parseStructured(self, sFilePath: str, bDebugContent: bool = False) -> list[Document]:
         """
         Parse a document by preserving the information about its structure.
         Each structural element (Title, NarrativeText, Table...) becomes
         its own LlamaIndex Document, with category preserved in metadata.
+        This parser can be user for formats where structure matters (pdf, docx, rtf)
         """
         oSkipCategories = {"Footer", "Header", "PageBreak", "PageNumber"}
         aoElements = partition(filename=sFilePath)
@@ -37,8 +43,8 @@ class DocumentParser:
                 continue
             aoDocuments.append(
                 Document(
-                    text=sText,
-                    metadata={
+                    text = sText,
+                    metadata = {
                         "source_path": sFilePath,
                         "category":    sCategory,
                         "page_number": getattr(oEl.metadata, "page_number", None),
@@ -59,41 +65,51 @@ class DocumentParser:
         return aoDocuments
 
 
-    def parse(self, bDebugContent: bool = False) -> list[Document]:
-        oLogger.debug(f"parse. Parsing documents in folder: {self.sFolderPath}")
+    def parseOneDocument(self, sFilePath: str, bDebugContent: bool = False) -> list[Document]:
+        """
+        Load and chunk a document file.
+        Returns ???
+        """
+        oLogger.debug(f"parseOneDocument. Parsing document: {sFilePath}")
 
-        # Only use UnstructuredReader for formats where structure matters
-        # md is intentionally excluded — LlamaIndex default reader handles it better
-        oUnstructuredReader = UnstructuredReader()
-        oFileExtractor = {
-            ".pdf":  oUnstructuredReader,
-            ".docx": oUnstructuredReader,
-            ".rtf":  oUnstructuredReader,
-        }
+        oFilePath = Path(sFilePath)
 
-        oDirectoryReader = SimpleDirectoryReader(
-            self.sFolderPath,
-            file_extractor=oFileExtractor,
-        )
+        if not oFilePath.exists():
+            oLogger.warning(f"parseOneDocument. File {sFilePath} does not exist.")
+            return []
+        
+        sFileExtension = oFilePath.suffix.lower()   # the returned exension includes the dot, e.g. ".pdf"
 
-        aoDocuments = oDirectoryReader.load_data()
+        aoDocuments = []
+        if sFileExtension in self.s_oSTRUCTURED_FORMATS:
+            oLogger.debug(f"parseOneDocument. Using _parseStructured for file {oFilePath.name} with extension {sFileExtension}")
+            aoDocuments = self._parseStructured(sFilePath, bDebugContent)
+        else:
+            # TODO
+            pass
 
         if not aoDocuments:
-            oLogger.warning(f"parse. No documents found in folder: {self.sFolderPath}")
+            oLogger.warning(f"parseOneDocument. No documents were parsed from file {sFilePath}.")
             return []
+    
 
-        if bDebugContent:
-            for oDocument in aoDocuments:
-                sMetadataDisplay = "\n".join(
-                    [f"\t\t{k}: {v}" for k, v in oDocument.metadata.items()]
-                )
-                oLogger.debug(
-                    f"--- DOCUMENT METADATA ---\n"
-                    f"\tFile: {oDocument.metadata.get('file_name')}\n"
-                    f"\tCategory: {oDocument.metadata.get('category', 'Unknown')}\n"
-                    f"\tMetadata:\n{sMetadataDisplay}\n"
-                    f"\tPreview:\n\t\t{oDocument.text[:500].strip()}\n"
-                    f"--- END ---"
-                )
+        if sFileExtension in self.s_oHEADER_AWARE_FORMATS:
+            # split on #, ##, ###
+            oParser = MarkdownNodeParser()
+        else:
+            # Used for txt, csv, html AND for pdf/docx/rtf after unstructured
+            # (unstructured already gave us element-level granularity,
+            #  SentenceSplitter only further splits elements that are too large)
+            iChunkSize = 1000       # TODO: make it configurable, what are good numbers?
+            iChunkOverlap = 100
+            oParser = SentenceSplitter(
+                chunk_size=iChunkSize,
+                chunk_overlap=iChunkOverlap,
+            )
 
-        return aoDocuments  # return the full list, structure intact
+        aoBaseNodes = oParser.get_nodes_from_documents(aoDocuments)
+        asChunks = [oNode.get_content() for oNode in aoBaseNodes if oNode.get_content().strip()]
+
+        oLogger.debug(f"parseOneDocument. After splitting, got {len(asChunks)} chunks from file {sFilePath}.")
+
+        return asChunks

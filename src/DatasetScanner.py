@@ -37,7 +37,7 @@ class DatasetScanner:
         return oH.hexdigest()
 
 
-    def scan(self) -> dict[str, str]:
+    def _scan(self) -> dict[str, str]:
         """
         Scans the folder containing the documents to be processed and computes a hash for each file.
         Returns a dict of {absolute_path: sha256_hash} for all the supported extensions.
@@ -68,3 +68,32 @@ class DatasetScanner:
 
         oLogger.info(f"scan. Scanned {iCount} files. Found {len(oResultDict)} supported files in folder {self.folderPath}")      
         return oResultDict
+    
+
+    def findDifference(self, oDbSnapshot: dict[str, str]):
+        """
+        Compare the current status of the dataset folder against the metadata sotred in the database.
+        Produces four lists:
+        - new files
+        - modified files
+        - deleted files
+        - unchanged files
+        """
+        oFolderSnapshot = self._scan()
+
+        oDatasetFilePaths = set(oFolderSnapshot.keys())
+        oDbPaths = set(oDbSnapshot.keys())
+
+        asNewFiles = [oPath for oPath in oDatasetFilePaths - oDbPaths]
+        asDeletedFiles = [oPath for oPath in oDbPaths - oDatasetFilePaths]
+        oModifiedFiles = [
+            oPath for oPath in oDatasetFilePaths & oDbPaths
+            if oDatasetFilePaths[oPath] != oDbPaths[oPath]
+        ]
+        asUnchangedFiles = [
+            oPath for oPath in oDatasetFilePaths & oDbPaths
+            if oDatasetFilePaths[oPath] == oDbPaths[oPath]
+        ]
+
+        oLogger.debug(f"New files: {len(asNewFiles)}, deleted files: {len(asDeletedFiles)}, modified files: {len(asUnchangedFiles)}")
+        return oFolderSnapshot, asNewFiles, asDeletedFiles, oModifiedFiles, asUnchangedFiles

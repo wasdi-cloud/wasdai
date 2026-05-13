@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from DatasetScanner import DatasetScanner
 from ChromaStore import ChromaStore
 from utils.LoggingConfiguration import setupLogging
+from Embedder import Embedder
 
 setupLogging()
 
@@ -28,7 +29,9 @@ def readConfigFile(sConfigFilePath):
 def ingestDocument(
         sFilePath: str,
         sFileHash: str,
-        # ChromaStore --> maybe I want it as a singleton. Not sure I want this
+        oStore: ChromaStore,
+        oEmbedder: Embedder,
+        oConfig: dict
 ):
     """
     #TODO: ADD DESCRIPTION
@@ -39,6 +42,45 @@ def ingestDocument(
     # - understand if the file is already in the vector store (by hash) and update it if needed
     """
 
+    if not sFilePath or not sFileHash:
+        oLogger.warning("ingestDocument. Missing file path or hash code")
+        raise ValueError("Not enough information provided to ingest document")
+
+    sDatasetFolderPath = oConfig.datasetPath
+    oDocumentParser = DocumentParser(sDatasetFolderPath)
+    aoChunks = oDocumentParser.parseOneDocument(sFilePath)
+    
+    if not aoChunks:
+         oLogger.warning(f"ingestDocument. No chunks produced for file {sFilePath}. Skipping")
+         return
+    
+    asIds = [f"{sFileHash}_chunk_{i}" for i in range(len(aoChunks))]
+    aoMetadata = [{
+        "sourcePath": sFilePath,
+        "fileHash": sFileHash,
+        "chunkIndex": i,
+        "category": oChunk["metadata"].get("category", "Unknown"),
+        "pageNumber": oChunk["metadata"].get("page_number", None)
+        }
+        for i, oChunk in enumerate(aoChunks)
+    ]
+
+    asTexts = [oChunk["text"] for oChunk in aoChunks]
+
+    afEmbeddings = oEmbedder.embed(asTexts)
+
+    oStore.upsert(asIds=asIds,
+                  afEmbeddings=afEmbeddings,
+                  asDocuments=asTexts,
+                  aoMetadatas=aoMetadata)
+
+    oLogger.info(f"ingestDocument. Ingested {len(aoChunks)} chunks from {sFilePath}")
+            
+
+
+
+
+
 
 
 
@@ -48,35 +90,51 @@ def main(sFolderPath: str):
     sConfigFilePath = "C:\\WASDI\\GIT\\wasdai\\config.json"
     oConfig = readConfigFile(sConfigFilePath)
 
-    # scan the file system to find the files to ingest
-    sDatasetPath = oConfig.datasetPath
-    oDatasetScanner = DatasetScanner(sDatasetPath)
-    oPathHashDict = oDatasetScanner.scan()          # get a dictionay {path:sha256}
 
-    """
-    for k, v in oPathHashDict.items():
-        print(k + " " + v)
-    """
-
-    # connect to Chroma and get the known files --> this I will need to know what it means and what Chroma returns when I want the "known files"
+    # connect to Chroma and get info about the ingested files
     oChromaStore = ChromaStore(
         sPersistDirectory=oConfig.chromaStore.persistDirectory,
         sCollectionName=oConfig.chromaStore.collectionName
     )
 
-    oChromaStore.getStoredFiles()
+    oDbSnapshot = oChromaStore.getStoredFiles()
 
-    # understand which files are new or updated by comparing the known files with the files found in the file system (by hash)
+    # understand which files are new or updated wrt what is stored in the DB
+    
+    # scan the file system to find the files to ingest
+    sDatasetPath = oConfig.datasetPath
+    oDatasetScanner = DatasetScanner(sDatasetPath)
+    oDatasetSnapshot, asNew, asDeleted, asModified, asUnchanged = oDatasetScanner.findDifference(oDbSnapshot)
 
     # load embeddings model
+    if not(asNew or asDeleted or asModified):
+        oLogger.info("main. All files are updated, nothing to do")
+
+    oEmbeddingModel = Embedder(sModelName=oConfig.embedding.modelName)
 
     # - delete chunks for removed files
+    for sFilePath in asDeleted:
+        oLogger.info(f"Deleting chunks for removed file {sFilePath}")
+        oChromaStore.deleteBySourcePath(sFilePath)
 
     # - re-ingest modified files
-
+    for sFilePath in asModified:
+            oLogger.info(f"Re-ingesting modified file {sFilePath}")
+            oChromaStore.deleteBySourcePath(sFilePath)
+            ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)
+            
     # - ingest new files
+    for sFilePath in asNew:
+            oLogger.info(f"Ingesting new file {sFilePath}")
+            ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)  
 
     # provide a summary of the performed operations
+    # TODO: these statistics could me more "real"
+    oLogger.info(
+        f"main. Pipeline complete — "
+        f"ingested: {len(asNew)} new, {len(asModified)} modified, "
+        f"deleted: {len(asDeleted)}, skipped: {len(asUnchanged)}"
+    )
 
 
 

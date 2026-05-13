@@ -2,4 +2,5 @@ llama-index
 llama-index-readers-file
 unstructured[all-docs]
 chromadb
+sentence-transformers
 python-magic-bin; sys_platform == 'win32'

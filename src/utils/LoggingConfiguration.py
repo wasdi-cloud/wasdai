@@ -42,6 +42,11 @@ def setupLogging():
             "numba": { "level": "WARNING" }, 
             "pdfminer": { "level": "WARNING" },
             "unstructured": { "level": "WARNING" },
+            "sentence_transformers": { "level": "WARNING" },
+            "transformers": { "level": "WARNING" },
+            "huggingface_hub": { "level": "WARNING" },
+            "httpx": { "level": "WARNING" },
+            "httpcore": { "level": "WARNING" },
         },
     }
 

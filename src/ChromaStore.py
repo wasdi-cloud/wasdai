@@ -61,4 +61,26 @@ class ChromaStore:
         )
         oLogger.debug(f"upsert. Upserted {len(asIds)} chunks")
 
-        
+
+    def deleteBySourcePath(self, sSourcePath: str) -> bool:
+        """
+        Delete all the chunks belonging to a given source file
+        """
+        if not sSourcePath:
+            oLogger.warning(f"File path {sSourcePath} does not exist")
+            return False
+
+        oResult = self.collection.get(
+            where={"sourcePath": sSourcePath},
+            include=[],
+        )
+
+        asIdsToDelete = oResult["ids"]
+
+        if asIdsToDelete:
+            self.collection.delete(ids=asIdsToDelete)
+            oLogger.debug(f"deleteBySourcePath. Deleted {len(asIdsToDelete)} chunks for {sSourcePath}")
+            return True
+
+        oLogger.warning("deleteBySourcePath. No documents to delete")
+        return False

@@ -65,10 +65,10 @@ class DocumentParser:
         return aoDocuments
 
 
-    def parseOneDocument(self, sFilePath: str, bDebugContent: bool = False) -> list[Document]:
+    def parseOneDocument(self, sFilePath: str, bDebugContent: bool = False) -> list[dict]:
         """
         Load and chunk a document file.
-        Returns ???
+        Returns a list of chunked text strings.
         """
         oLogger.debug(f"parseOneDocument. Parsing document: {sFilePath}")
 
@@ -108,8 +108,17 @@ class DocumentParser:
             )
 
         aoBaseNodes = oParser.get_nodes_from_documents(aoDocuments)
+        """
         asChunks = [oNode.get_content() for oNode in aoBaseNodes if oNode.get_content().strip()]
 
         oLogger.debug(f"parseOneDocument. After splitting, got {len(asChunks)} chunks from file {sFilePath}.")
-
-        return asChunks
+        """
+        aoChunks = [
+            {
+                "text": oNode.get_content(),
+                "metadata": oNode.metadata,  
+            }
+            for oNode in aoBaseNodes
+            if oNode.get_content().strip()
+        ]
+        return aoChunks

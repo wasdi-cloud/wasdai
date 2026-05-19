@@ -35,7 +35,7 @@ class ChromaStore:
         if self.collection.count() == 0:
             return {}
         
-        oResult = self.collection.get(include="metadatas")
+        oResult = self.collection.get(include=["metadatas"])
         oStoredFiles : dict[str, str] = {}
         for oMetadata in oResult["metadatas"]:
             sPath = oMetadata.get("sourcePath") # TODO: this will have to match with the name of the metadata that we give to the chunk
@@ -59,7 +59,7 @@ class ChromaStore:
             documents=asDocuments,
             metadatas=aoMetadatas
         )
-        oLogger.debug(f"upsert. Upserted {len(asIds)} chunks")
+        oLogger.info(f"upsert. Upserted {len(asIds)} chunks")
 
 
     def deleteBySourcePath(self, sSourcePath: str) -> bool:
@@ -79,7 +79,7 @@ class ChromaStore:
 
         if asIdsToDelete:
             self.collection.delete(ids=asIdsToDelete)
-            oLogger.debug(f"deleteBySourcePath. Deleted {len(asIdsToDelete)} chunks for {sSourcePath}")
+            oLogger.info(f"deleteBySourcePath. Deleted {len(asIdsToDelete)} chunks for {sSourcePath}")
             return True
 
         oLogger.warning("deleteBySourcePath. No documents to delete")

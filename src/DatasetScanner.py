@@ -48,7 +48,7 @@ class DatasetScanner:
             oLogger.error(f"scan. Invalid folder path: {self.folderPath}")
             raise ValueError(f"Invalid folder path: {self.folderPath}")
         
-        oLogger.debug(f"scan. Scanning folder: {self.folderPath}")
+        oLogger.info(f"scan. Scanning folder: {self.folderPath}")
 
         oResultDict = {}
         iCount = 0
@@ -88,12 +88,12 @@ class DatasetScanner:
         asDeletedFiles = [oPath for oPath in oDbPaths - oDatasetFilePaths]
         oModifiedFiles = [
             oPath for oPath in oDatasetFilePaths & oDbPaths
-            if oDatasetFilePaths[oPath] != oDbPaths[oPath]
+            if oFolderSnapshot[oPath] != oDbSnapshot[oPath]
         ]
         asUnchangedFiles = [
             oPath for oPath in oDatasetFilePaths & oDbPaths
-            if oDatasetFilePaths[oPath] == oDbPaths[oPath]
+            if oFolderSnapshot[oPath] == oDbSnapshot[oPath]
         ]
 
-        oLogger.debug(f"New files: {len(asNewFiles)}, deleted files: {len(asDeletedFiles)}, modified files: {len(asUnchangedFiles)}")
+        oLogger.info(f"New files: {len(asNewFiles)}, deleted files: {len(asDeletedFiles)}, modified files: {len(asUnchangedFiles)}")
         return oFolderSnapshot, asNewFiles, asDeletedFiles, oModifiedFiles, asUnchangedFiles

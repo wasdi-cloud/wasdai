@@ -1,5 +1,6 @@
 import json
 import logging
+import chromadb
 from types import SimpleNamespace
 from DatasetScanner import DatasetScanner
 from ChromaStore import ChromaStore
@@ -46,6 +47,7 @@ def ingestDocument(
         oLogger.warning("ingestDocument. Missing file path or hash code")
         raise ValueError("Not enough information provided to ingest document")
 
+    oLogger.info(f"ingestDocument. Processing file {sFilePath} with hash {sFileHash}")
     sDatasetFolderPath = oConfig.datasetPath
     oDocumentParser = DocumentParser(sDatasetFolderPath)
     aoChunks = oDocumentParser.parseOneDocument(sFilePath)
@@ -75,13 +77,36 @@ def ingestDocument(
                   aoMetadatas=aoMetadata)
 
     oLogger.info(f"ingestDocument. Ingested {len(aoChunks)} chunks from {sFilePath}")
+
+
+def visualizeDbContent():
+    """
+    Utility function to visualize the content of the ChromaDB collection
+    """
+    client = chromadb.PersistentClient("C:\\WASDI\\ChromaDB")
+    collections = client.list_collections()
+    print("Available Collections:")
+    if not collections:
+        print("No collections found in this directory.")
+    else:
+        for col in collections:
+            # Each 'col' is a Collection object
+            print(f" - {col.name}")
+    collection = client.get_collection(name="embeddings")
+    # Peek at the first 5 items
+    results = collection.peek(limit=100)
+
+    print(f"{'ID':<20} | {'Category':<15} | {'Snippet'}")
+    print("-" * 80)
+
+    for i in range(len(results["ids"])):
+        doc_id = results["ids"][i]
+        content = results["documents"][i][:200] # Just the first 200 chars
+        category = results["metadatas"][i].get("category", "N/A")
+        
+        print(f"{doc_id[-15:]:<20} | {category:<15} | {content}...")
+    
             
-
-
-
-
-
-
 
 
 def main(sFolderPath: str):
@@ -99,12 +124,30 @@ def main(sFolderPath: str):
 
     oDbSnapshot = oChromaStore.getStoredFiles()
 
+    oLogger.info(f"main. Files currently stored in the Chroma vector store")
+    for sFilePath, sFileHash in oDbSnapshot.items():
+        oLogger.info(f"main. File in DB: {sFilePath}, hash: {sFileHash}")
+
     # understand which files are new or updated wrt what is stored in the DB
     
     # scan the file system to find the files to ingest
     sDatasetPath = oConfig.datasetPath
     oDatasetScanner = DatasetScanner(sDatasetPath)
     oDatasetSnapshot, asNew, asDeleted, asModified, asUnchanged = oDatasetScanner.findDifference(oDbSnapshot)
+
+    oLogger.info(f"main. Dataset scan")
+    oLogger.info(f"\t* New files")
+    for sFilePath in asNew:
+        oLogger.info(f"\t\t  {sFilePath}")
+    oLogger.info(f"\t* Deleted files")
+    for sFilePath in asDeleted:
+        oLogger.info(f"\t\t  {sFilePath}")
+    oLogger.info(f"\t* Modified files")
+    for sFilePath in asModified:
+        oLogger.info(f"\t\t  {sFilePath}")
+    oLogger.info(f"\t* Unchanged files")
+    for sFilePath in asUnchanged:
+        oLogger.info(f"\t\t  {sFilePath}")
 
     # load embeddings model
     if not(asNew or asDeleted or asModified):
@@ -119,21 +162,22 @@ def main(sFolderPath: str):
 
     # - re-ingest modified files
     for sFilePath in asModified:
-            oLogger.info(f"Re-ingesting modified file {sFilePath}")
-            oChromaStore.deleteBySourcePath(sFilePath)
-            ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)
+        oLogger.info(f"Re-ingesting modified file {sFilePath}")
+        oChromaStore.deleteBySourcePath(sFilePath)
+        ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)
             
     # - ingest new files
     for sFilePath in asNew:
-            oLogger.info(f"Ingesting new file {sFilePath}")
-            ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)  
+        oLogger.info(f"Ingesting new file {sFilePath}")
+        ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)  
 
     # provide a summary of the performed operations
     # TODO: these statistics could me more "real"
     oLogger.info(
         f"main. Pipeline complete — "
         f"ingested: {len(asNew)} new, {len(asModified)} modified, "
-        f"deleted: {len(asDeleted)}, skipped: {len(asUnchanged)}"
+        f"deleted: {len(asDeleted)},"
+        f"skipped: {len(asUnchanged)}"
     )
 
 
@@ -151,5 +195,16 @@ def main(sFolderPath: str):
     """
 
 if __name__ == "__main__":
-    sFolderPath = "test_dataset"    # TODO: from where should I read this path? from env variable? from command line argument? 
-    main(sFolderPath)
+
+    iParameter = 1
+
+    if iParameter == 1:
+        sFolderPath = "test_dataset"    # TODO: from where should I read this path? from env variable? from command line argument? 
+        main(sFolderPath)
+    else:
+        visualizeDbContent()
+
+        
+
+
+    

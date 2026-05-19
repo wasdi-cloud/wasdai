@@ -3,7 +3,7 @@ import logging.config
 
 def setupLogging():
 
-    sLOG_LEVEL = "DEBUG"
+    sLOG_LEVEL = "INFO" # TODO: make it configurable via env variable or config file
 
     oLOGGING_CONFIG = {
         "version": 1,

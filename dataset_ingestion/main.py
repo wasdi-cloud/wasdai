@@ -137,12 +137,18 @@ def main(sFolderPath: str):
 
     oLogger.info(f"main. Dataset scan")
     oLogger.info(f"\t* New files")
+    if not asNew:
+        oLogger.info(f"\t\t No new files")
     for sFilePath in asNew:
         oLogger.info(f"\t\t  {sFilePath}")
     oLogger.info(f"\t* Deleted files")
+    if not asDeleted:
+        oLogger.info(f"\t\t No deleted files")
     for sFilePath in asDeleted:
         oLogger.info(f"\t\t  {sFilePath}")
     oLogger.info(f"\t* Modified files")
+    if not asModified:
+        oLogger.info(f"\t\t No modified files")
     for sFilePath in asModified:
         oLogger.info(f"\t\t  {sFilePath}")
     oLogger.info(f"\t* Unchanged files")
@@ -152,6 +158,7 @@ def main(sFolderPath: str):
     # load embeddings model
     if not(asNew or asDeleted or asModified):
         oLogger.info("main. All files are updated, nothing to do")
+        return
 
     oEmbeddingModel = Embedder(sModelName=oConfig.embedding.modelName)
 
@@ -196,7 +203,7 @@ def main(sFolderPath: str):
 
 if __name__ == "__main__":
 
-    iParameter = 2
+    iParameter = 1
 
     if iParameter == 1:
         sFolderPath = "test_dataset"    # TODO: from where should I read this path? from env variable? from command line argument? 

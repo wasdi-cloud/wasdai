@@ -2,14 +2,14 @@ import json
 import logging
 import chromadb
 from types import SimpleNamespace
-from DatasetScanner import DatasetScanner
-from ChromaStore import ChromaStore
+from dataset_ingestion.DatasetScanner import DatasetScanner
+from dataset_ingestion.ChromaStore import ChromaStore
 from utils.LoggingConfiguration import setupLogging
-from Embedder import Embedder
+from dataset_ingestion.Embedder import Embedder
 
 setupLogging()
 
-from parsers.DocumentParser import DocumentParser
+from dataset_ingestion.parsers.DocumentParser import DocumentParser
 
 oLogger = logging.getLogger(__name__)
 
@@ -101,7 +101,7 @@ def visualizeDbContent():
 
     for i in range(len(results["ids"])):
         doc_id = results["ids"][i]
-        content = results["documents"][i][:200] # Just the first 200 chars
+        content = results["documents"][i][:1000] # Just the first 200 chars
         category = results["metadatas"][i].get("category", "N/A")
         
         print(f"{doc_id[-15:]:<20} | {category:<15} | {content}...")
@@ -196,7 +196,7 @@ def main(sFolderPath: str):
 
 if __name__ == "__main__":
 
-    iParameter = 1
+    iParameter = 2
 
     if iParameter == 1:
         sFolderPath = "test_dataset"    # TODO: from where should I read this path? from env variable? from command line argument? 

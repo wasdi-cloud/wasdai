@@ -46,7 +46,7 @@ class StructuredParser(BaseParser):
         its own LlamaIndex Document, with category preserved in metadata.
         This parser can be user for formats where structure matters (pdf, docx, rtf)
         """
-        oSkipCategories = {"Footer", "Header", "PageBreak", "PageNumber", "Unknown"}
+        oSkipCategories = {"Footer", "Header", "PageBreak", "PageNumber", "UncategorizedText"}
         aoElements = partition(filename=sFilePath)
         aoDocuments = []
         for oEl in aoElements:

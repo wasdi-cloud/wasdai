@@ -20,8 +20,8 @@ class DatasetScanner:
     }
 
 
-    def __init__(self, sFolderPath: str):
-        self.folderPath = sFolderPath
+    def __init__(self, asFolderPaths: list[str]):
+        self.folderPaths = asFolderPaths
 
 
     def _computeFileHash(self, sFilePath: str) -> str:
@@ -42,14 +42,29 @@ class DatasetScanner:
         Scans the folder containing the documents to be processed and computes a hash for each file.
         Returns a dict of {absolute_path: sha256_hash} for all the supported extensions.
         """
-        oFolderPath = Path(self.folderPath)
+        oMergedSnapshot = {}
+
+        for sFolderPath in self.folderPaths:
+            oFolderPath = Path(sFolderPath)
+            if not oFolderPath.exists() or not oFolderPath.is_dir():
+                oLogger.error(f"scan. Invalid folder path: {sFolderPath}")
+                raise ValueError(f"Invalid folder path: {sFolderPath}")
+            oLogger.info(f"scan. Scanning folder: {sFolderPath}")
+            oFolderSnapshot = self._scanOneFolder(oFolderPath)
+            oMergedSnapshot.update(oFolderSnapshot)
+        return oMergedSnapshot
+       
+    
+    def _scanOneFolder(self, oFolderPath: Path) -> dict[str, str]:
+        """
+        Scans a single folder and computes a hash for each file.
+        Returns a dict of {absolute_path: sha256_hash} for all the supported extensions.
+        """
 
         if not oFolderPath.exists() or not oFolderPath.is_dir():
-            oLogger.error(f"scan. Invalid folder path: {self.folderPath}")
-            raise ValueError(f"Invalid folder path: {self.folderPath}")
+            oLogger.error(f"_scanOneFolder. Invalid folder path: {oFolderPath}")
+            raise ValueError(f"Invalid folder path: {oFolderPath}")
         
-        oLogger.info(f"scan. Scanning folder: {self.folderPath}")
-
         oResultDict = {}
         iCount = 0
 
@@ -63,13 +78,13 @@ class DatasetScanner:
                 try:
                     oResultDict[str(oFilePath)] = self._computeFileHash(str(oFilePath))
                 except Exception as oE:
-                    oLogger.warning(f"scan. Error occurred while processing file: {oFilePath}. {oE}")
+                    oLogger.warning(f"_scanOneFolder. Error occurred while processing file: {oFilePath}. {oE}")
                     continue
 
-        oLogger.info(f"scan. Scanned {iCount} files. Found {len(oResultDict)} supported files in folder {self.folderPath}")      
+        oLogger.info(f"_scanOneFolder. Scanned {iCount} files. Found {len(oResultDict)} supported files in folder {oFolderPath}")      
         return oResultDict
-    
 
+        
     def findDifference(self, oDbSnapshot: dict[str, str]):
         """
         Compare the current status of the dataset folder against the metadata sotred in the database.
@@ -78,15 +93,16 @@ class DatasetScanner:
         - modified files
         - deleted files
         - unchanged files
+        :param oDbSnapshot: dict of {file_path: file_hash} representing the current metadata stored in the database
         """
         oFolderSnapshot = self._scan()
-
+ 
         oDatasetFilePaths = set(oFolderSnapshot.keys())
         oDbPaths = set(oDbSnapshot.keys())
 
         asNewFiles = [oPath for oPath in oDatasetFilePaths - oDbPaths]
         asDeletedFiles = [oPath for oPath in oDbPaths - oDatasetFilePaths]
-        oModifiedFiles = [
+        asModifiedFiles = [
             oPath for oPath in oDatasetFilePaths & oDbPaths
             if oFolderSnapshot[oPath] != oDbSnapshot[oPath]
         ]
@@ -95,5 +111,5 @@ class DatasetScanner:
             if oFolderSnapshot[oPath] == oDbSnapshot[oPath]
         ]
 
-        oLogger.info(f"New files: {len(asNewFiles)}, deleted files: {len(asDeletedFiles)}, modified files: {len(asUnchangedFiles)}")
-        return oFolderSnapshot, asNewFiles, asDeletedFiles, oModifiedFiles, asUnchangedFiles
+        oLogger.info(f"New files: {len(asNewFiles)}, deleted files: {len(asDeletedFiles)}, modified files: {len(asModifiedFiles)}, unchanged files: {len(asUnchangedFiles)}")
+        return oFolderSnapshot, asNewFiles, asDeletedFiles, asModifiedFiles, asUnchangedFiles

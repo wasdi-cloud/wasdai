@@ -10,11 +10,11 @@ from pathlib import Path
 
 oLogger = logging.getLogger(__name__)
 
-class StructuredParser(BaseParser):
+class RSTParser(BaseParser):
     """Handles RST files"""
 
     def parse(self, sFilePath: str, bDebugContent: bool = False) -> list[dict]:
-        oLogger.info(f"parse. Parsing structured file: {sFilePath}")
+        oLogger.info(f"parse. Parsing RST file: {sFilePath}")
 
         oFilePath = Path(sFilePath)
 
@@ -103,3 +103,39 @@ class StructuredParser(BaseParser):
                 )
 
         return aoDocuments
+    
+
+    def _cleanRstSyntax(self, sText: str) -> str:
+        """
+        Clean RST syntax from the given text string.
+        """
+        # Normalise Windows line endings first
+        sCleaned = sText.replace('\r\n', '\n').replace('\r', '\n')
+
+        # Remove Directives and Comments (lines starting with '.. ')
+        sCleaned = re.sub(r'^\s*\.\.\s+.*$', '', sCleaned, flags=re.MULTILINE)
+
+        # Remove Header Underlines/Overlines (lines of ===, ---, ~~~, etc.)
+        sCleaned = re.sub(r'^[=\-\`:\.\'\"\~\^\_\*\+#]{3,}$', '', sCleaned, flags=re.MULTILINE)
+
+        # Remove Markdown Headers (e.g., # Header, ## Subheader)
+        sCleaned = re.sub(r'^#+\s+', '', sCleaned, flags=re.MULTILINE)
+
+        # Clean up Links and Hyperlinks
+        # `Link Text <http://example.com>`_
+        sCleaned = re.sub(r'`([^<]+)\s*<[^>]+>`_+', r'\1', sCleaned)
+        # Anonymous links: text__ or text_
+        sCleaned = re.sub(r'(\w+)(__?)(?=\s|$)', r'\1', sCleaned)
+
+        # Strip Inline Formatting (Bold, Italic, Inline Code)
+        # Removes **, *, __, _, `, and `` without removing the words inside them
+        sCleaned = re.sub(r'(\*\*|__|\*|_|``|`)', '', sCleaned)
+
+        # Clean up Roles/Interpreted Text (e.g., :func:`open`, :ref:`label`)
+        sCleaned = re.sub(r':\w+:`([^`]+)`', r'\1', sCleaned)
+
+        # Normalize whitespace
+        sCleaned = re.sub(r'\n{3,}', '\n\n', sCleaned)
+        sCleaned = sCleaned.strip()
+
+        return sCleaned

@@ -1,6 +1,6 @@
-from StructuredParser import StructuredParser
-from RSTParser import RSTParser
-from BaseParser import BaseParser
+from .StructuredParser import StructuredParser
+from .RSTParser import RSTParser
+from .BaseParser import BaseParser
 
 from pathlib import Path
 
@@ -9,10 +9,10 @@ class DocumentParserFactory:
     
     # Map extensions to their respective parser classes
     _s_oPARSER_MAP = {
-        ".pdf": StructuredParser,
-        ".docx": StructuredParser,  # TODO: check
-        ".rtf": StructuredParser, # TODO: check
-        ".rst": RSTParser
+        ".pdf": [StructuredParser, 1000, 100],
+        ".docx": [StructuredParser, 1000, 100],  # TODO: check
+        ".rtf": [StructuredParser, 1000, 100], # TODO: check
+        ".rst": [RSTParser, 100, 100]
     }
 
     @classmethod
@@ -21,7 +21,10 @@ class DocumentParserFactory:
         sExtension = oPath.suffix.lower()
         
         # Look up the correct parser class, default to DefaultParser if not found
-        oParserClass = cls._s_oPARSER_MAP.get(sExtension)
-        if not oParserClass:
+        aoParserInfo = cls._s_oPARSER_MAP.get(sExtension)
+        if not aoParserInfo:
             raise ValueError(f"DocumentParserFactory.getParser. No parser found for extension: {sExtension}")
-        return oParserClass()
+        oParserClass = aoParserInfo[0]
+        iChunkSize = aoParserInfo[1]
+        iChunkOverlap = aoParserInfo[2]
+        return oParserClass(iChunkSize, iChunkOverlap)

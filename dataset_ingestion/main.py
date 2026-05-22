@@ -6,6 +6,7 @@ from dataset_ingestion.DatasetScanner import DatasetScanner
 from dataset_ingestion.ChromaStore import ChromaStore
 from utils.LoggingConfiguration import setupLogging
 from dataset_ingestion.Embedder import Embedder
+from dataset_ingestion.parsers.DocumentParserFactory import DocumentParserFactory
 
 setupLogging()
 
@@ -48,9 +49,11 @@ def ingestDocument(
         raise ValueError("Not enough information provided to ingest document")
 
     oLogger.info(f"ingestDocument. Processing file {sFilePath} with hash {sFileHash}")
-    sDatasetFolderPath = oConfig.datasetPath
-    oDocumentParser = DocumentParser(sDatasetFolderPath)
-    aoChunks = oDocumentParser.parseOneDocument(sFilePath)
+
+    # get the proper parser for the file type
+    oParser = DocumentParserFactory.getParser(sFilePath)
+
+    aoChunks = oParser.parse(sFilePath, bDebugContent=True)
     
     if not aoChunks:
          oLogger.warning(f"ingestDocument. No chunks produced for file {sFilePath}. Skipping")
@@ -58,11 +61,11 @@ def ingestDocument(
     
     asIds = [f"{sFileHash}_chunk_{i}" for i in range(len(aoChunks))]
     aoMetadata = [{
-        "sourcePath": sFilePath,
-        "fileHash": sFileHash,
-        "chunkIndex": i,
-        "category": oChunk["metadata"].get("category", "Unknown"),
-        "pageNumber": oChunk["metadata"].get("page_number", None)
+            "sourcePath": sFilePath,
+            "fileHash": sFileHash,
+            "chunkIndex": i,
+            "category": oChunk["metadata"].get("category", "Unknown"),
+            "pageNumber": oChunk["metadata"].get("page_number", None)
         }
         for i, oChunk in enumerate(aoChunks)
     ]
@@ -109,7 +112,7 @@ def visualizeDbContent():
             
 
 
-def main(sFolderPath: str):
+def main():
 
     # read the configuration file
     sConfigFilePath = "C:\\WASDI\\GIT\\wasdai\\config.json"
@@ -131,52 +134,47 @@ def main(sFolderPath: str):
     # understand which files are new or updated wrt what is stored in the DB
     
     # scan the file system to find the files to ingest
-    sDatasetPath = oConfig.datasetPath
-    oDatasetScanner = DatasetScanner(sDatasetPath)
+    asDatasetPath = oConfig.datasetPaths
+    oDatasetScanner = DatasetScanner(asDatasetPath)
     oDatasetSnapshot, asNew, asDeleted, asModified, asUnchanged = oDatasetScanner.findDifference(oDbSnapshot)
 
+    if not(asNew or asDeleted or asModified):
+        oLogger.info("main. All files are updated, nothing to do")
+        return
+    
     oLogger.info(f"main. Dataset scan")
-    oLogger.info(f"\t* New files")
-    if not asNew:
-        oLogger.info(f"\t\t No new files")
-    for sFilePath in asNew:
-        oLogger.info(f"\t\t  {sFilePath}")
+
+    # - delete chunks for removed files
     oLogger.info(f"\t* Deleted files")
     if not asDeleted:
         oLogger.info(f"\t\t No deleted files")
     for sFilePath in asDeleted:
         oLogger.info(f"\t\t  {sFilePath}")
+        oChromaStore.deleteBySourcePath(sFilePath)
+
+    oEmbeddingModel = Embedder(sModelName=oConfig.embedding.modelName)
+    
+    # - re-ingest modified files
     oLogger.info(f"\t* Modified files")
     if not asModified:
         oLogger.info(f"\t\t No modified files")
     for sFilePath in asModified:
+        oLogger.info(f"\t\t  {sFilePath} (will be re-ingested)")
+        oChromaStore.deleteBySourcePath(sFilePath)
+        ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)
+
+    # - ingest new files
+    oLogger.info(f"\t* New files")
+    if not asNew:
+        oLogger.info(f"\t\t No new files")
+    for sFilePath in asNew:
         oLogger.info(f"\t\t  {sFilePath}")
+        ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig) 
+
     oLogger.info(f"\t* Unchanged files")
     for sFilePath in asUnchanged:
         oLogger.info(f"\t\t  {sFilePath}")
 
-    # load embeddings model
-    if not(asNew or asDeleted or asModified):
-        oLogger.info("main. All files are updated, nothing to do")
-        return
-
-    oEmbeddingModel = Embedder(sModelName=oConfig.embedding.modelName)
-
-    # - delete chunks for removed files
-    for sFilePath in asDeleted:
-        oLogger.info(f"Deleting chunks for removed file {sFilePath}")
-        oChromaStore.deleteBySourcePath(sFilePath)
-
-    # - re-ingest modified files
-    for sFilePath in asModified:
-        oLogger.info(f"Re-ingesting modified file {sFilePath}")
-        oChromaStore.deleteBySourcePath(sFilePath)
-        ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)
-            
-    # - ingest new files
-    for sFilePath in asNew:
-        oLogger.info(f"Ingesting new file {sFilePath}")
-        ingestDocument(sFilePath, oDatasetSnapshot[sFilePath], oChromaStore, oEmbeddingModel, oConfig)  
 
     # provide a summary of the performed operations
     # TODO: these statistics could me more "real"
@@ -186,7 +184,6 @@ def main(sFolderPath: str):
         f"deleted: {len(asDeleted)},"
         f"skipped: {len(asUnchanged)}"
     )
-
 
 
     """
@@ -206,8 +203,7 @@ if __name__ == "__main__":
     iParameter = 1
 
     if iParameter == 1:
-        sFolderPath = "test_dataset"    # TODO: from where should I read this path? from env variable? from command line argument? 
-        main(sFolderPath)
+        main()
     else:
         visualizeDbContent()
 

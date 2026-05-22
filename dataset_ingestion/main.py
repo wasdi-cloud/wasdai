@@ -53,6 +53,10 @@ def ingestDocument(
     # get the proper parser for the file type
     oParser = DocumentParserFactory.getParser(sFilePath)
 
+    if oParser is None:
+        oLogger.warning(f"ingestDocument. No parser found for file {sFilePath}. Skipping.")
+        return
+
     aoChunks = oParser.parse(sFilePath, bDebugContent=True)
     
     if not aoChunks:
@@ -103,11 +107,11 @@ def visualizeDbContent():
     print("-" * 80)
 
     for i in range(len(results["ids"])):
-        doc_id = results["ids"][i]
-        content = results["documents"][i][:1000] # Just the first 200 chars
-        category = results["metadatas"][i].get("category", "N/A")
-        
-        print(f"{doc_id[-15:]:<20} | {category:<15} | {content}...")
+        sDocId = results["ids"][i]
+        sContent = results["documents"][i][:100] # Just the first 200 chars
+        sCategory = results["metadatas"][i].get("category", "N/A")
+        sFileName = results["metadatas"][i].get("sourcePath", "N/A")
+        print(f"{sFileName} | {sDocId[-15:]:<20} | {sCategory:<15} | {sContent}...")
     
             
 

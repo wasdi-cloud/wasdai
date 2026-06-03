@@ -9,10 +9,13 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
 from langchain_community.document_compressors import FlashrankRerank
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain.agents import create_agent
 
 
 import os
 import logging
+import asyncio
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -221,6 +224,33 @@ def format_docs(aoDocs):
     return "\n\n".join(oDoc.page_content for oDoc in aoDocs)
 
 
+async def promptMCP(sUserPrompt: str):
+    oLLM = ChatOpenAI(
+        base_url=sEndpoint + "/v1",
+        api_key=sToken,
+        model="llama3.1:8b"
+    )
+
+    oClient = MultiServerMCPClient({
+        "wasdi": {
+            "command": "python",
+            "args": ["C:\\WASDI\\GIT\\wasdai\\mcp_server\\wasdiMCPServer.py"],
+            "transport": "stdio"
+        }
+    })
+    tools = await oClient.get_tools()
+    agent = create_agent(model=oLLM, tools=tools)
+
+    oResult = await agent.ainvoke({
+        "messages": [{"role": "user", "content": sUserPrompt}]
+    })
+
+    sResponse = oResult["messages"][-1].content
+    logging.info(f"PROMPT: {sUserPrompt}")
+    logging.info(f"Response from MCP agent: {sResponse}")
+    return sResponse
+
+
 
 if __name__ == "__main__":
     # the date will not be correct, but it is just to test the connection to the model
@@ -233,4 +263,8 @@ if __name__ == "__main__":
     
 
     # promptRAG(sQuestion2)
-    promptRAG_Evolution(sQuestion3)
+    # promptRAG_Evolution(sQuestion3)
+    sMCPPrompt1 = "Call the WASDI hello endpoint"
+    sMCPPrompt2 = "Give me the list of my workspaces in WASDI"
+    sMCPPrompt3 = "Give me the list of my workspaces' names in WASDI, together with the node id"
+    asyncio.run(promptMCP(sMCPPrompt2))

@@ -15,3 +15,8 @@ langchain-text-splitters
 langchain-ollama
 flashrank
 langchain-huggingface
+langchain-mcp-adapters 
+langgraph
+# mcp server
+mcp
+httpx

@@ -1,4 +1,5 @@
 import logging
+import torch
 
 from sentence_transformers import SentenceTransformer
 
@@ -9,9 +10,17 @@ class Embedder:
     def __init__(self, sModelName):
         if not sModelName:
             raise ValueError(f"__init__: no embeddings model name provided")
+        
+        # Determine device and log GPU availability
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        oLogger.info(f"__init__: Using device: {device}")
+        if torch.cuda.is_available():
+            oLogger.info(f"__init__: GPU detected: {torch.cuda.get_device_name(0)}")
+        
         oLogger.info(f"__init__:  loading the embedding model: {sModelName}")
         self.model = SentenceTransformer(sModelName)
-        oLogger.info(f"__init__: embedding model loaded")
+        self.model.to(device)
+        oLogger.info(f"__init__: embedding model loaded on {device}")
 
     
     def embed(self, asTexts: list[str]) -> list[list[float]]:

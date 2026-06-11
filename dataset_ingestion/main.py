@@ -10,7 +10,7 @@ from dataset_ingestion.parsers.DocumentParserFactory import DocumentParserFactor
 
 setupLogging()
 
-from dataset_ingestion.parsers.DocumentParser import DocumentParser
+# from dataset_ingestion.parsers.DocumentParser import DocumentParser
 
 oLogger = logging.getLogger(__name__)
 

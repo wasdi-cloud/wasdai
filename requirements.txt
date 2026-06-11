@@ -20,3 +20,6 @@ langgraph
 # mcp server
 mcp
 httpx
+#fastAPI server
+fastapi
+uvicorn

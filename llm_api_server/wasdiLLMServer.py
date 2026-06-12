@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Annotated
 
 from fastapi import Body, FastAPI, Header
@@ -14,7 +15,11 @@ setupLogging()
 oApp = FastAPI(root_path="/api")
 
 logging.info("Loading configuration")
-sConfigFilePath = "C:\\WASDI\\GIT\\wasdai\\config.json"
+sConfigFilePath = os.getenv(
+    "WASDI_CONFIG_PATH", 
+    "C:\\WASDI\\GIT\\wasdai\\config.json"
+)
+
 if not (oConfig := WasdiConfig(sConfigFilePath)):
     logging.error("Failed to load configuration")
     raise RuntimeError(f"Could not load config from {sConfigFilePath}")

@@ -43,6 +43,14 @@ else:
     logging.error("Failed to initialize LLM client")
     # raise RuntimeError("LLM client initialization failed")
 
+logging.info("Initializing the MCP client")
+s_oMCPClient = MultiServerMCPClient({
+    "wasdi": {
+        "url": "http://localhost:7000/mcp",
+        "transport": "http"
+    }
+})
+
 @oApp.get("/hello")
 async def hello():
     """Endpoint to test if the server is up and running."""
@@ -54,17 +62,13 @@ async def chat(x_session_token: Annotated[str, Header()],
                sPrompt: Annotated[str, Body()]):
     logging.debug(f"Received request with token: {x_session_token} and prompt: {sPrompt}")
 
-    oClient = MultiServerMCPClient({
-        "wasdi": {
-            "url": "http://localhost:7000/mcp",
-            "transport": "http"
-        }
-    })
-    tools = await oClient.get_tools()
+    # Get tools from MCP server
+    s_oTools = await s_oMCPClient.get_tools()
+    
     # RUN THE AGENT
-    agent = create_agent(model=s_oLLM, tools=tools)
+    oAgent = create_agent(model=s_oLLM, tools=s_oTools)
 
-    oResult = await agent.ainvoke({
+    oResult = await oAgent.ainvoke({
         "messages": [{"role": "user", "content": sPrompt}]
     })
 

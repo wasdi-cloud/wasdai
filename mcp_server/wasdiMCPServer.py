@@ -5,6 +5,7 @@ import os
 from starlette.middleware.cors import CORSMiddleware
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI
@@ -91,7 +92,9 @@ def hello(sName: str) -> str:
 
 @s_oMcpServer.tool()
 async def wasdiHello() -> str:
-    """Calls the WASDI hello enpoint to check if the service is up and running."""
+    """WASDI hello endpoint can be used to check if the service is up and running. 
+    The call does not need any authentication. If it works, the API returns a json with 'stringValue': 'Hello Wasdi!!'. 
+    If it does not work can return not found or not available or any other http error."""
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get("https://www.wasdi.net/wasdiwebserver/rest/wasdi/hello")
         oResponse.raise_for_status()
@@ -111,21 +114,28 @@ async def searchWasdiDocs(sUserPrompt: str) -> str:
     
     
 @s_oMcpServer.tool()
-async def get_workspaces() -> str:
+async def get_workspaces(oContext: Context = None) -> str:
     """
     Returns the list of workspaces for the currently authenticated user.
-    The workspaces being retunned are those that the user has access to, either as owner or as collaborator.
+    The workspaces being returned are those that the user has access to, either as owner or as collaborator.
     The AI agent should return to the user the total count of workspaces and the name of each workspace.
     """
-    session_token  = "4bddfcdd-6e46-4df8-96e9-bc2eed192d34"
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
+    session_token = ""
+    if oContext and oContext.request_context and oContext.request_context.request:
+        oRequest = oContext.request_context.request
+        session_token = oRequest.headers.get("x-session-token") or ""
+
+    if not session_token:
+        raise ValueError("Missing x-session-token header")
+    
+    async with httpx.AsyncClient() as oClient:
+        oResponse = await oClient.get(
             f"https://www.wasdi.net/wasdiwebserver/rest/ws/byuser",
             headers={"x-session-token": session_token}
         )
-        response.raise_for_status()
-        print(response)
-        return response.text
+        oResponse.raise_for_status()
+        logging.debug("WASDI get_workspaces call completed with status %s", oResponse.status_code)
+        return oResponse.text
     
 
 if __name__ == "__main__":

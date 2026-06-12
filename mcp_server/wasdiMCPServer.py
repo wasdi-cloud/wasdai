@@ -58,14 +58,13 @@ oCompressionRetriever = ContextualCompressionRetriever(
     base_compressor=oCompressor,
     base_retriever=oRetriever
 )
+
 sPromptTemplate = """Use the context provided to answer the user's question below. If you do not know the answer 
 based on the context provided, tell the user that you do  not know the answer to their question based on the context 
 provided and that you are sorry.
 
 context: {context}
-
 question: {query}
-
 answer: """
 
 oCustomRAGPrompt = PromptTemplate.from_template(sPromptTemplate)
@@ -93,12 +92,16 @@ async def wasdiHello() -> str:
         return oResponse.text
     
 @oMcpServer.tool()
-async def searchWasdiDocs(sQuery: str) -> str:
+async def searchWasdiDocs(sUserPrompt: str) -> str:
     """
     Searches the internal WASDI documentation and knowledge base.
     Use this tool whenever the user asks for explanations about the system,
-    how to use features, how to navigate the WASDI platform, or general platform knowledge.
+    how to use features, how to navigate the WASDI platform, general platform knowledge
+    or general Earth Observation (EO) knowledge.
     """
+    oResponse = oRAGChain.invokeRAGChain(sUserPrompt)
+    return oResponse.content
+
     
     
 @oMcpServer.tool()
@@ -108,7 +111,7 @@ async def get_workspaces() -> str:
     The workspaces being retunned are those that the user has access to, either as owner or as collaborator.
     The AI agent should return to the user the total count of workspaces and the name of each workspace.
     """
-    session_token  = "xxx"
+    session_token  = "4bddfcdd-6e46-4df8-96e9-bc2eed192d34"
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"https://www.wasdi.net/wasdiwebserver/rest/ws/byuser",
@@ -117,10 +120,11 @@ async def get_workspaces() -> str:
         response.raise_for_status()
         print(response)
         return response.text
+    
 
 if __name__ == "__main__":
     # extract the ASGI web application from the MCP server and run it with Uvicorn
     # uvicorn is the server only responsible for accepting raw HTTP traffic
     # the web aapplication contains the businnes logic
     oApp = oMcpServer.streamable_http_app
-    uvicorn.run(oApp, host="0.0.0.0", port=8000)
+    uvicorn.run(oApp, host="0.0.0.0", port=7000)

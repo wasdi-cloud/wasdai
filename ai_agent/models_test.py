@@ -231,11 +231,19 @@ async def promptMCP(sUserPrompt: str):
         model="llama3.1:8b"
     )
 
+    """
     oClient = MultiServerMCPClient({
         "wasdi": {
             "command": "python",
             "args": ["C:\\WASDI\\GIT\\wasdai\\mcp_server\\wasdiMCPServer.py"],
             "transport": "stdio"
+        }
+    })
+    """
+    oClient = MultiServerMCPClient({
+        "wasdi": {
+            "url": "http://localhost:7000/mcp",
+            "transport": "http"
         }
     })
     tools = await oClient.get_tools()

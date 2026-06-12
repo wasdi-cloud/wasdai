@@ -17,6 +17,7 @@ class DocumentParserFactory:
         ".docx": [StructuredParser, 1000, 100],  # TODO: check
         ".rtf": [StructuredParser, 1000, 100], # TODO: check
         ".rst": [RSTParser, 500, 100]
+        # TODO: java e python
     }
 
     @classmethod

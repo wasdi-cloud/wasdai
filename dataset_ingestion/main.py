@@ -204,7 +204,7 @@ def main():
 
 if __name__ == "__main__":
 
-    iParameter = 1
+    iParameter = 2
 
     if iParameter == 1:
         main()

@@ -2180,8 +2180,24 @@ async def ingest_existing_file_in_workspace(sFileName: str, sWorkspaceId: str, s
 @s_oMcpServer.tool()
 async def get_product_properties(sFileName: str, sWorkspaceId: str, bGetChecksum: bool = None, oContext: Context = None) -> str:
     """
-    Returns the properties of a product/file.
+    Returns the properties of a product/file in a workspace. 
     This mirrors CatalogResources.getProductProperties.
+
+    Inputs:
+    sFileName: is the name of the file to get properties for (always relative to workspace path, so usually just the file name)
+    sWorkspaceId: is the unique id of the workspace in which to get the file properties
+    bGetChecksum: is an optional boolean indicating whether to get the checksum of the file. If not provided, the default is false. If true, the checksum will be included in the properties. Usually use false, the checksum is needed just to check if a file is corrupted usually
+
+    Output:
+    A JSON object with the properties of the product/file, including:
+
+	
+	String fileName: Name of the file (with extension)
+	String friendlyName: Friendly name of the file
+	long lastUpdateTimestampMs: Last update timestamp in milliseconds
+	long size: Size of the file in bytes
+	String checksum: Checksum of the file (if bGetChecksum is true)
+	String style: Style of the file (if applicable)
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2213,6 +2229,13 @@ async def eo_data_search_get_count(sQuery: str, sProviders: str = None, oContext
     """
     Returns the total number of EO search results for a query.
     This mirrors OpenSearchResource.count.
+
+    Inputs:
+    sQuery: is the search query string
+    sProviders: is an optional comma-separated list of providers to filter the search. use "AUTO" to automatically select providers.
+
+    Output:
+    The total count of search results
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2249,6 +2272,51 @@ async def eo_data_paginated_search(
     """
     Executes a paginated EO search query.
     This mirrors OpenSearchResource.search.
+
+    Inputs:
+    sQuery: is the search query string
+    sProvider: is an optional comma-separated list of providers to filter the search. use "AUTO" to automatically select providers.
+    sOffset: is an optional string indicating the offset for pagination. If not provided, the default is 0.
+    sLimit: is an optional string indicating the limit for pagination. If not provided, the default is 10.
+    sSortedBy: is an optional string indicating the field to sort by. If not provided, the default is "startDate".
+    sOrder: is an optional string indicating the order of sorting. Can be "asc" or "desc". If not provided, the default is "desc".
+
+    Output:
+    A list of JSON objects (QueryResultViewModel) containing the search results:
+	
+	String preview:  Encoded Image Preview
+	String title: File Name
+	String summary: Description. Supports a sort of std like: "Date: 2021-12-25T18:25:03.242Z, Instrument: SAR, Mode: IW, Satellite: S1A, Size: 0.95 GB" but is not mandatory
+	String id: Provider Id
+	String link: Link (or equivalent) to access the file
+	String footprint: WKT Footprint
+	provider: Data Provider that found this item
+	Map<String, String> properties: Dictionary of additional properties	
+	String volumeName: If this is accessible in a Volume, here we have the nameIf this is accessible in a Volume, here we have the name
+	String volumePath: If this is accessible in a Volume, here we have the path in the volume
+	String platform: Unique code of the platform/mission of this entry 
+	
+    Basic info are:
+        .Title -> Name of the file
+        .Summary -> Description. Supports a sort of std like: "Date: 2021-12-25T18:25:03.242Z, Instrument: SAR, Mode: IW, Satellite: S1A, Size: 0.95 GB" but is not mandatory
+        .Id -> Provider unique id
+        .Link -> Link to download the file
+        .Footprint -> Bounding box in WKT ie POLYGON ((-7.087445 31.109682, -4.389633 31.524973, -4.062707 29.77639, -6.712266 29.357685, -7.087445 31.109682))
+                    Note: for POLYGON the convention is LON LAT, LON LAT...
+        .Provider -> Provider used to get this info.
+
+    Properties is a dictionary filled with all the properties supported by the data provider.
+    Can be seen with the "info" button in the client.
+            Some Commonly used, and shown in the client, are:
+                ."date": reference Date
+                ."instrument": used instrument 
+                ."sensoroperationalmode": sensing mode
+                ."size": image size as string
+                ."relativeOrbit": relative orbit of the acquisition
+                ."relativeorbitnumber": same of above, used by the client
+                ."platformname": Platform Name
+
+    The libs searchs for a property called relativeOrbit
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2305,6 +2373,13 @@ async def eo_data_search_count_list(asQueries: list[str], sProviders: str = None
     """
     Returns the total count of EO results for a list of queries.
     This mirrors OpenSearchResource.countList.
+
+    Inputs:
+    asQueries: is a list of search query strings. Usually only one is used
+    sProviders: is an optional comma-separated list of providers to filter the search. use "AUTO" to automatically select providers.
+
+    Output:
+    The total count of EO results for the provided queries.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2334,6 +2409,47 @@ async def eo_data_search_list(asQueries: list[str], sProvider: str = None, oCont
     """
     Executes EO searches for a list of queries.
     This mirrors OpenSearchResource.searchList.
+
+    Inputs:
+    asQueries: is a list of search query strings. Usually only one is used
+    sProviders: is an optional comma-separated list of providers to filter the search. use "AUTO" to automatically select providers.
+
+    Output:
+    A list of JSON objects (QueryResultViewModel) containing the search results:
+	
+	String preview:  Encoded Image Preview
+	String title: File Name
+	String summary: Description. Supports a sort of std like: "Date: 2021-12-25T18:25:03.242Z, Instrument: SAR, Mode: IW, Satellite: S1A, Size: 0.95 GB" but is not mandatory
+	String id: Provider Id
+	String link: Link (or equivalent) to access the file
+	String footprint: WKT Footprint
+	provider: Data Provider that found this item
+	Map<String, String> properties: Dictionary of additional properties	
+	String volumeName: If this is accessible in a Volume, here we have the nameIf this is accessible in a Volume, here we have the name
+	String volumePath: If this is accessible in a Volume, here we have the path in the volume
+	String platform: Unique code of the platform/mission of this entry 
+	
+    Basic info are:
+        .Title -> Name of the file
+        .Summary -> Description. Supports a sort of std like: "Date: 2021-12-25T18:25:03.242Z, Instrument: SAR, Mode: IW, Satellite: S1A, Size: 0.95 GB" but is not mandatory
+        .Id -> Provider unique id
+        .Link -> Link to download the file
+        .Footprint -> Bounding box in WKT ie POLYGON ((-7.087445 31.109682, -4.389633 31.524973, -4.062707 29.77639, -6.712266 29.357685, -7.087445 31.109682))
+                    Note: for POLYGON the convention is LON LAT, LON LAT...
+        .Provider -> Provider used to get this info.
+
+    Properties is a dictionary filled with all the properties supported by the data provider.
+    Can be seen with the "info" button in the client.
+            Some Commonly used, and shown in the client, are:
+                ."date": reference Date
+                ."instrument": used instrument 
+                ."sensoroperationalmode": sensing mode
+                ."size": image size as string
+                ."relativeOrbit": relative orbit of the acquisition
+                ."relativeorbitnumber": same of above, used by the client
+                ."platformname": Platform Name
+
+    The libs searchs for a property called relativeOrbit        
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2367,8 +2483,15 @@ async def share_file_to_workspace(
     oContext: Context = None,
 ) -> str:
     """
-    Shares a file from one workspace to another.
+    Shares a file from one workspace to another. The file is copied to the destination workspace. The file is not moved, so it will still be available in the origin workspace.
     This mirrors FileBufferResource.share.
+
+    Inputs:
+    sOriginWorkspaceId: is the unique id of the origin workspace
+    sDestinationWorkspaceId: is the unique id of the destination workspace
+    sProductName: is the name of the product/file to share
+    sParentProcessWorkspaceId: is an optional process workspace id. If provided, the share will be associated with this process workspace. Usually keep it null, is used by the library when triggers a child process
+
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2405,7 +2528,7 @@ async def share_file_to_workspace(
 @s_oMcpServer.tool()
 async def import_product_in_wasdi(oImageImportViewModel: dict, oContext: Context = None) -> str:
     """
-    Triggers import/download of an image in WASDI (POST endpoint).
+    Triggers import/download of an image in WASDI.
     This mirrors FileBufferResource.imageImport.
     """
     sSessionToken = getSessionToken(oContext)

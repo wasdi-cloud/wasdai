@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 import uuid
 import re
 import time
@@ -291,6 +292,19 @@ async def chat(
         
     except Exception as oE:
         logging.error(f"chat. Agent invocation failed: {oE}")
+
+        # Check if this is a TaskGroup exception (BaseExceptionGroup in Python 3.11+)
+        if hasattr(oE, "exceptions"):
+            logging.error("--- TaskGroup Sub-Exceptions Found ---")
+            for i, sub_exc in enumerate(oE.exceptions):
+                logging.error(f"Sub-Exception #{i}: {type(sub_exc).__name__} - {sub_exc}")
+                # Print the complete internal traceback for each hidden error
+                sub_tb = "".join(traceback.format_exception(type(sub_exc), sub_exc, sub_exc.__traceback__))
+                logging.error(f"Sub-Exception #{i} Traceback:\n{sub_tb}")
+            logging.error("---------------------------------------")
+        else:
+            # Fallback for standard errors
+            logging.error(traceback.format_exc())        
         oResult = None
     finally:
         X_SESSION_TOKEN_CTX.reset(oTokenReset)

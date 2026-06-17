@@ -255,23 +255,14 @@ async def chat(
         )
 
     oChatRepository = ChatRepository()
-    aoChats = oChatRepository.getEntitiesByField({"chatId": sChatId})
+    oChat = oChatRepository.getEntityById(sChatId)
 
-    if aoChats is None:
+    if oChat is None:
         logging.warning(f"chat. Not chat corresponding to the id {sChatId}")
         raise HTTPException(
             status_code = status.HTTP_400_BAD_REQUEST,
             detail="Chat not found"
         )
-    
-    if len(aoChats) == 0:
-        logging.warning(f"chat. Found zero chats for the id {sChatId}")
-        raise HTTPException(
-            status_code = status.HTTP_400_BAD_REQUEST,
-            detail="Chat not found"
-        )
-    
-    oChat = aoChats[0]
     
     oTokenReset = X_SESSION_TOKEN_CTX.set(sSessionToken)
 
@@ -389,14 +380,23 @@ async def getChat(
         )
 
     oChatRepository = ChatRepository()
-    oChat = oChatRepository.getEntityById(sChatId)
+    aoChats = oChatRepository.getEntitiesByField({"chatId": sChatId, "userId": sUserId})
 
-    if not oChat:
-        logging.warning(f"getChat. Not chat corresponding to the id {sChatId}")
+    if not aoChats:
+        logging.warning(f"getChat. No chat corresponding to the id {sChatId}")
         raise HTTPException(
             status_code = status.HTTP_404_NOT_FOUND,
             detail="Chat not found"
         )
+    
+    if len(aoChats) == 0:
+        logging.warning(f"getChat. Found zero chats for the id {sChatId}")
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    oChat = aoChats[0]
     
     try:
         sTitle = "No title" #TODO: translation

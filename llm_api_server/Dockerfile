@@ -27,6 +27,9 @@ COPY utils/ ./utils/
 # Expose the port the app runs on
 EXPOSE 8000
 
-# Command to run the application
-# --workers: number of worker processes.
-CMD ["gunicorn", "llm_api_server.wasdiLLMServer:oApp", "-k", "uvicorn.workers.UvicornWorker", "--workers", "$WASDAI_WORKERS", "--bind", "0.0.0.0:8000", "--timeout", "120"]
+# Command to run the application (Shell form allows env var expansion)
+CMD gunicorn llm_api_server.wasdiLLMServer:oApp \
+    -k uvicorn.workers.UvicornWorker \
+    --workers $WASDAI_WORKERS \
+    --bind 0.0.0.0:8000 \
+    --timeout 120

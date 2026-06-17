@@ -112,16 +112,23 @@ async def new_chat(x_session_token: Annotated[str | None, Header()] = None):
 
     if not isTokenSecure(sSessionToken):
         logging.warning(f"newChat. Invalid or missing session token: {sSessionToken}")
-        raise ValueError("Invalid or missing session token")
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing session token"
+        )
 
     sUserId = getUserFromSession(sSessionToken)
 
     if not sUserId:
         logging.warning(f"newChat. No user associated with session token: {sSessionToken}")
-        raise ValueError("No user associated with this session token")
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="No user associated with this session token"
+        )
+
 
     logging.info(f"newChat. Session found for token: {sSessionToken}, userId: {sUserId}")
-
+    
     oChatRepository = ChatRepository()
 
     sUUID = str(uuid.uuid4())
@@ -139,7 +146,10 @@ async def new_chat(x_session_token: Annotated[str | None, Header()] = None):
 
     if not bResult:
         logging.warning(f"newChat. Failed to create a new chat for user {sUserId}")
-        raise ValueError("Failed to create a new chat")
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create a new chat"
+        )
     
     return sUUID
 
@@ -399,7 +409,7 @@ async def listChat(
             if oChat.prompts:
                 aoChats.append(
                     {
-                        "title": oChat.prompts[0][:30],
+                        "title": f"{oChat.prompts[0][:30]}...",
                         "chatId": oChat.chatId
                     }
                 )

@@ -1,4 +1,4 @@
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
@@ -7,8 +7,6 @@ from langchain_chroma import Chroma
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
-from langchain_community.document_compressors import FlashrankRerank
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain.agents import create_agent
 
@@ -152,7 +150,17 @@ def promptRAG_Evolution(sQuestion: str):
 
     # get the embeddings model
     sEndpoint = oConfig.aiAgent.llm_endpoint
-    oEmbeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
+    sEmbeddingModelName = getattr(oConfig.embedding, "modelName", "BAAI/bge-m3")
+    sHuggingFaceToken = getattr(oConfig.embedding, "huggingface_token", "")
+
+    aoEmbeddingArgs = {
+        "model_name": sEmbeddingModelName,
+    }
+    if sHuggingFaceToken:
+        os.environ["HF_TOKEN"] = sHuggingFaceToken
+        aoEmbeddingArgs["model_kwargs"] = {"token": sHuggingFaceToken}
+
+    oEmbeddings = HuggingFaceEmbeddings(**aoEmbeddingArgs)
 
     # initialize Chroma db as a vector store
     oVectorStore = Chroma(
@@ -172,13 +180,6 @@ def promptRAG_Evolution(sQuestion: str):
 
     # set the retriever
     oRetriever = oVectorStore.as_retriever()
-
-    # initialize the Flash Rerank Compressor for post-retrieval re-ranking
-    oCompressor = FlashrankRerank()
-    oCompressionRetriever = ContextualCompressionRetriever(
-        base_compressor=oCompressor,
-        base_retriever=oRetriever
-    )
 
     # initialize the LLM instance
     sToken = oConfig.aiAgent.llm_token
@@ -209,7 +210,7 @@ def promptRAG_Evolution(sQuestion: str):
     # inizialise the custom RAG chain
     oRAGChain = RAGChain(
         oLLM=oLLM,
-        oRetriever=oCompressionRetriever,
+        oRetriever=oRetriever,
         oPrompt=oCustomRAGPrompt
     )
 

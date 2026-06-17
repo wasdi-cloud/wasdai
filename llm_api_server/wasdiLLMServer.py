@@ -368,13 +368,6 @@ async def getChat(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Chat not found"
         )
-    
-
-
-
-
-    
-
 
 if __name__ == "__main__":
     import uvicorn

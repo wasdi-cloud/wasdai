@@ -1,8 +1,8 @@
 import logging
+from typing import Any
 
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
 
 
 class RAGChain:
@@ -11,7 +11,7 @@ class RAGChain:
     def __init__(
         self,
         oLLM: ChatOpenAI,
-        oRetriever: ContextualCompressionRetriever,
+        oRetriever: Any,
         oPrompt: PromptTemplate
     ):
         self.oLLM = oLLM

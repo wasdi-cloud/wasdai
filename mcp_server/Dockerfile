@@ -24,7 +24,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 RUN python3 -c "from flashrank import Ranker; Ranker(model_name='ms-marco-MultiBERT-L-12')"
 
 # Pre-download Hugging Face BGE-M3 Embeddings model to prevent worker race conditions
-RUN python3 -c "from langchain_community.embeddings import HuggingFaceEmbeddings; HuggingFaceEmbeddings(model_name='BAAI/bge-m3')"
+RUN python3 -c "from langchain_huggingface import HuggingFaceEmbeddings; HuggingFaceEmbeddings(model_name='BAAI/bge-m3')"
 
 # Copy the application code
 COPY mcp_server/ ./mcp_server/

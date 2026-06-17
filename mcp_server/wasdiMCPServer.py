@@ -6,12 +6,10 @@ from starlette.middleware.cors import CORSMiddleware
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp import Context
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
-from langchain_community.document_compressors import FlashrankRerank
 from utils.WasdiConfig import WasdiConfig
 from utils.LoggingConfiguration import setupLogging
 from ai_agent.RAGChain import RAGChain
@@ -30,7 +28,20 @@ if not (s_oConfig := WasdiConfig(sConfigFilePath)):
     raise RuntimeError(f"Could not load config from {sConfigFilePath}")
 
 logging.info("Loading Embeddings")
-if not (s_oEmbeddings := HuggingFaceEmbeddings(model_name="BAAI/bge-m3")):
+s_oEmbeddingConfig = getattr(s_oConfig, "embedding", None)
+s_sEmbeddingModelName = getattr(s_oEmbeddingConfig, "modelName", "BAAI/bge-m3")
+s_sHuggingFaceToken = getattr(s_oEmbeddingConfig, "huggingface_token", "")
+
+aoEmbeddingArgs = {
+    "model_name": s_sEmbeddingModelName,
+}
+
+if s_sHuggingFaceToken:
+    # Keep HF Hub authentication explicit for higher rate limits and stable downloads.
+    os.environ["HF_TOKEN"] = s_sHuggingFaceToken
+    aoEmbeddingArgs["model_kwargs"] = {"token": s_sHuggingFaceToken}
+
+if not (s_oEmbeddings := HuggingFaceEmbeddings(**aoEmbeddingArgs)):
     logging.error("Failed to load embeddings")
     raise RuntimeError("Could not load embeddings")
 
@@ -56,13 +67,7 @@ s_oLLM = ChatOpenAI(
 )
 
 s_oRetriever = s_oVectorStore.as_retriever()
-
-# initialize the Flash Rerank Compressor for post-retrieval re-ranking
-s_oCompressor = FlashrankRerank()
-s_oCompressionRetriever = ContextualCompressionRetriever(
-    base_compressor=s_oCompressor,
-    base_retriever=s_oRetriever
-)
+s_oCompressionRetriever = s_oRetriever
 
 s_sPromptTemplate = """Use the context to answer the user's question. You are a WASDI and Earth Observation (EO) expert, you help users to use WASDI interface and to code WASDI applications using wasdi libraries. searchWasdiDocs should help to search the documentation where the architecture, the main entities, the APIs and the libraries are documented.
 The comment of each method try to describe the purpose of the method, the input parameters and the output. The comment can be used to understand how to use the method and what is the expected result. 
@@ -81,6 +86,20 @@ s_oRAGChain = RAGChain(
 )
 
 s_oMcpServer = FastMCP("wasdi-mcp-server", "0.1.0")
+
+oApp = s_oMcpServer.streamable_http_app()
+
+sCorsOrigins = os.getenv("WASDI_CORS_ALLOW_ORIGINS", "*")
+aoCorsOrigins = [sOrigin.strip() for sOrigin in sCorsOrigins.split(",") if sOrigin.strip()]
+bAllowAllOrigins = "*" in aoCorsOrigins
+
+oApp.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if bAllowAllOrigins else aoCorsOrigins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=not bAllowAllOrigins,
+)
 
 @s_oMcpServer.tool()
 def hello(sName: str) -> str:
@@ -3405,23 +3424,4 @@ async def get_snap_workflow_by_name(sWorkflowName: str, oContext: Context = None
         return oResponse.text
 
 if __name__ == "__main__":
-    # extract the ASGI web application from the MCP server and run it with Uvicorn
-    # uvicorn is the server only responsible for accepting raw HTTP traffic
-    # the web aapplication contains the businnes logic
-    oApp = s_oMcpServer.streamable_http_app()
-
-    # Comma-separated list of origins. Use "*" to allow all origins.
-    sCorsOrigins = os.getenv("WASDI_CORS_ALLOW_ORIGINS", "*")
-    aoCorsOrigins = [sOrigin.strip() for sOrigin in sCorsOrigins.split(",") if sOrigin.strip()]
-    bAllowAllOrigins = "*" in aoCorsOrigins
-
-    oApp.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"] if bAllowAllOrigins else aoCorsOrigins,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        # Browsers reject credentialed CORS responses with wildcard origins.
-        allow_credentials=not bAllowAllOrigins,
-    )
-
     uvicorn.run(oApp, host="0.0.0.0", port=7000)

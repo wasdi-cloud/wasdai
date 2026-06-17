@@ -88,7 +88,7 @@ async def _inject_session_header(
 
 s_oMCPClient = MultiServerMCPClient({
     "wasdi": {
-        "url": "http://localhost:7000/mcp",
+        "url": s_oConfig.MCP_server.url,
         "transport": "http",
     }
 }, tool_interceptors=[_inject_session_header])

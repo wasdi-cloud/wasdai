@@ -257,17 +257,17 @@ async def chat(
     oChatRepository = ChatRepository()
     aoChats = oChatRepository.getEntitiesByField({"chatId": sChatId})
 
-    if not aoChats:
+    if aoChats is None:
         logging.warning(f"chat. Not chat corresponding to the id {sChatId}")
         raise HTTPException(
-            status_code = status.HTTP_404_NOT_FOUND,
+            status_code = status.HTTP_400_BAD_REQUEST,
             detail="Chat not found"
         )
     
     if len(aoChats) == 0:
-        logging.warning(f"chat. No chat found for the id {sChatId}")
+        logging.warning(f"chat. Found zero chats for the id {sChatId}")
         raise HTTPException(
-            status_code = status.HTTP_404_NOT_FOUND,
+            status_code = status.HTTP_400_BAD_REQUEST,
             detail="Chat not found"
         )
     

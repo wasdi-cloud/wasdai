@@ -24,6 +24,7 @@ sConfigFilePath = os.getenv(
     "WASDI_CONFIG_PATH", 
     "C:\\WASDI\\GIT\\wasdai\\config.json"
 )
+s_sWasdiApiUrl = os.getenv("WASDI_API_URL", "https://www.wasdi.net/wasdiwebserver").rstrip("/")
 
 if not (s_oConfig := WasdiConfig(sConfigFilePath)):
     logging.error("Failed to load configuration")
@@ -145,18 +146,18 @@ async def getNodeUrlForWorkspace(sWorkspaceId: str, sSessionToken: str) -> str:
     try:
         async with httpx.AsyncClient() as oClient:
             oWsResponse = await oClient.get(
-                "https://www.wasdi.net/wasdiwebserver/rest/ws/getws",
+                f"{s_sWasdiApiUrl}/rest/ws/getws",
                 params={"workspace": sWorkspaceId},
                 headers={"x-session-token": sSessionToken}
             )
             oWsResponse.raise_for_status()
             oWsData = json.loads(oWsResponse.text)
-            sNodeUrl = oWsData.get("apiUrl", "https://www.wasdi.net/wasdiwebserver")
+            sNodeUrl = oWsData.get("apiUrl", s_sWasdiApiUrl)
             logging.debug("Resolved node URL for workspace %s: %s", sWorkspaceId, sNodeUrl)
             return sNodeUrl
     except Exception as e:
         logging.warning("Failed to resolve node URL for workspace %s, falling back to main server: %s", sWorkspaceId, str(e))
-        return "https://www.wasdi.net/wasdiwebserver"
+        return s_sWasdiApiUrl
 
 
 async def getWorkspaceIdForProcessWorkspace(sProcessObjId: str, sSessionToken: str) -> str:
@@ -171,7 +172,7 @@ async def getWorkspaceIdForProcessWorkspace(sProcessObjId: str, sSessionToken: s
     try:
         async with httpx.AsyncClient() as oClient:
             oProcessResponse = await oClient.get(
-                "https://www.wasdi.net/wasdiwebserver/rest/process/byid",
+                f"{s_sWasdiApiUrl}/rest/process/byid",
                 params={"procws": sProcessObjId},
                 headers={"x-session-token": sSessionToken},
             )
@@ -204,7 +205,7 @@ async def getNodeUrlForProcessWorkspace(
         return await getNodeUrlForWorkspace(sResolvedWorkspaceId, sSessionToken)
 
     logging.warning("Failed to resolve node URL for process %s, falling back to main server", sProcessObjId)
-    return "https://www.wasdi.net/wasdiwebserver"
+    return s_sWasdiApiUrl
 
 @s_oMcpServer.tool()
 async def wasdiHello() -> str:
@@ -212,7 +213,7 @@ async def wasdiHello() -> str:
     The call does not need any authentication. If it works, the API returns a json with 'stringValue': 'Hello Wasdi!!'. 
     If it does not work can return not found or not available or any other http error."""
     async with httpx.AsyncClient() as oClient:
-        oResponse = await oClient.get("https://www.wasdi.net/wasdiwebserver/rest/wasdi/hello")
+        oResponse = await oClient.get(f"{s_sWasdiApiUrl}/rest/wasdi/hello")
         oResponse.raise_for_status()
         return oResponse.text
     
@@ -255,7 +256,7 @@ async def get_workspaces_by_user(oContext: Context = None) -> str:
     
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/ws/byuser",
+            f"{s_sWasdiApiUrl}/rest/ws/byuser",
             headers={"x-session-token": sSessionToken}
         )
         oResponse.raise_for_status()
@@ -298,7 +299,7 @@ async def get_workspace_details(sWorkspaceId: str, oContext: Context = None) -> 
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/ws/getws",
+            f"{s_sWasdiApiUrl}/rest/ws/getws",
             params={"workspace": sWorkspaceId},
             headers={"x-session-token": sSessionToken}
         )
@@ -324,7 +325,7 @@ async def get_workspace_name_by_id(sWorkspaceId: str, oContext: Context = None) 
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/ws/wsnamebyid",
+            f"{s_sWasdiApiUrl}/rest/ws/wsnamebyid",
             params={"workspace": sWorkspaceId},
             headers={"x-session-token": sSessionToken}
         )
@@ -357,7 +358,7 @@ async def create_new_workspace(sName: str = None, sNodeCode: str = None, oContex
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/ws/create",
+            f"{s_sWasdiApiUrl}/rest/ws/create",
             params={"name": sName, "node": sNodeCode},
             headers={"x-session-token": sSessionToken}
         )
@@ -399,7 +400,7 @@ async def share_workspace_with_user(sWorkspaceId: str, sDestinationUserId: str, 
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.put(
-            "https://www.wasdi.net/wasdiwebserver/rest/ws/share/add",
+            f"{s_sWasdiApiUrl}/rest/ws/share/add",
             params={"workspace": sWorkspaceId, "userId": sDestinationUserId, "rights": sRights},
             headers={"x-session-token": sSessionToken}
         )
@@ -434,7 +435,7 @@ async def get_users_with_access_to_workspace(sWorkspaceId: str, oContext: Contex
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/ws/share/byworkspace",
+            f"{s_sWasdiApiUrl}/rest/ws/share/byworkspace",
             params={"workspace": sWorkspaceId},
             headers={"x-session-token": sSessionToken}
         )
@@ -576,7 +577,7 @@ async def get_detailed_list_of_products_by_workspace(sWorkspaceId: str, oContext
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/product/byws",
+            f"{s_sWasdiApiUrl}/rest/product/byws",
             params={"workspace": sWorkspaceId},
             headers={"x-session-token": sSessionToken}
         )
@@ -613,7 +614,7 @@ async def get_light_list_of_products_by_workspace(sWorkspaceId: str, oContext: C
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/product/bywslight",
+            f"{s_sWasdiApiUrl}/rest/product/bywslight",
             params={"workspace": sWorkspaceId},
             headers={"x-session-token": sSessionToken}
         )
@@ -645,7 +646,7 @@ async def get_names_of_products_by_workspace(sWorkspaceId: str, oContext: Contex
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/product/namesbyws",
+            f"{s_sWasdiApiUrl}/rest/product/namesbyws",
             params={"workspace": sWorkspaceId},
             headers={"x-session-token": sSessionToken}
         )
@@ -1220,7 +1221,7 @@ async def upload_new_processor(
 
         async with httpx.AsyncClient() as oClient:
             oResponse = await oClient.post(
-                "https://www.wasdi.net/wasdiwebserver/rest/processors/uploadprocessor",
+                f"{s_sWasdiApiUrl}/rest/processors/uploadprocessor",
                 params=aoParams,
                 files=aoFiles,
                 headers={"x-session-token": sSessionToken},
@@ -1265,7 +1266,7 @@ async def get_deployed_processors(oContext: Context = None) -> str:
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/getdeployed",
+            f"{s_sWasdiApiUrl}/rest/processors/getdeployed",
             headers={"x-session-token": sSessionToken},
         )
         oResponse.raise_for_status()
@@ -1324,7 +1325,7 @@ async def get_single_deployed_processor(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/getprocessor",
+            f"{s_sWasdiApiUrl}/rest/processors/getprocessor",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -1383,7 +1384,7 @@ async def get_market_place_app_list(oFilters: dict = None, oContext: Context = N
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/getmarketlist",
+            f"{s_sWasdiApiUrl}/rest/processors/getmarketlist",
             json=oFilters or {},
             headers={"x-session-token": sSessionToken},
         )
@@ -1429,7 +1430,7 @@ async def get_market_place_app_detail(sProcessorName: str, oContext: Context = N
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/getmarketdetail",
+            f"{s_sWasdiApiUrl}/rest/processors/getmarketdetail",
             params={"processorname": sProcessorName},
             headers={"x-session-token": sSessionToken},
         )
@@ -1507,7 +1508,7 @@ async def run_processor(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/run",
+            f"{s_sWasdiApiUrl}/rest/processors/run",
             params=aoParams,
             content=sEncodedJson,
             headers={"x-session-token": sSessionToken},
@@ -1543,7 +1544,7 @@ async def get_credits_for_run_paid_processor(sProcessorId: str, sEncodedJson: st
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/getcredits",
+            f"{s_sWasdiApiUrl}/rest/processors/getcredits",
             params={"processorId": sProcessorId},
             content=sEncodedJson,
             headers={"x-session-token": sSessionToken},
@@ -1578,7 +1579,7 @@ async def get_processor_help(sProcessorName: str, oContext: Context = None) -> s
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/help",
+            f"{s_sWasdiApiUrl}/rest/processors/help",
             params={"name": sProcessorName},
             headers={"x-session-token": sSessionToken},
         )
@@ -1692,7 +1693,7 @@ async def redeploy_processor(sProcessorId: str, sWorkspaceId: str, oContext: Con
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/redeploy",
+            f"{s_sWasdiApiUrl}/rest/processors/redeploy",
             params={"processorId": sProcessorId, "workspace": sWorkspaceId},
             headers={"x-session-token": sSessionToken},
         )
@@ -1727,7 +1728,7 @@ async def update_processor(sProcessorId: str, oUpdatedProcessorVM: dict, oContex
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/update",
+            f"{s_sWasdiApiUrl}/rest/processors/update",
             params={"processorId": sProcessorId},
             json=oUpdatedProcessorVM,
             headers={"x-session-token": sSessionToken},
@@ -1793,7 +1794,7 @@ async def update_processor_details(sProcessorId: str, oUpdatedProcessorVM: dict,
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/updatedetails",
+            f"{s_sWasdiApiUrl}/rest/processors/updatedetails",
             params={"processorId": sProcessorId},
             json=oUpdatedProcessorVM,
             headers={"x-session-token": sSessionToken},
@@ -1848,7 +1849,7 @@ async def update_processor_files(
 
         async with httpx.AsyncClient() as oClient:
             oResponse = await oClient.post(
-                "https://www.wasdi.net/wasdiwebserver/rest/processors/updatefiles",
+                f"{s_sWasdiApiUrl}/rest/processors/updatefiles",
                 params=aoParams,
                 files=aoFiles,
                 headers={"x-session-token": sSessionToken},
@@ -1883,7 +1884,7 @@ async def download_processor(sProcessorId: str, oContext: Context = None) -> str
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/downloadprocessor",
+            f"{s_sWasdiApiUrl}/rest/processors/downloadprocessor",
             params=aoParams
         )
         oResponse.raise_for_status()
@@ -1925,7 +1926,7 @@ async def share_processor(sProcessorId: str, sUserId: str, sRights: str = None, 
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.put(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/share/add",
+            f"{s_sWasdiApiUrl}/rest/processors/share/add",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -1958,7 +1959,7 @@ async def get_users_can_access_processor(sProcessorId: str, oContext: Context = 
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/share/byprocessor",
+            f"{s_sWasdiApiUrl}/rest/processors/share/byprocessor",
             params={"processorId": sProcessorId},
             headers={"x-session-token": sSessionToken},
         )
@@ -1990,7 +1991,7 @@ async def get_processor_ui(sProcessorName: str, oContext: Context = None) -> str
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/ui",
+            f"{s_sWasdiApiUrl}/rest/processors/ui",
             params={"name": sProcessorName},
             headers={"x-session-token": sSessionToken},
         )
@@ -2027,7 +2028,7 @@ async def get_processor_build_logs(sProcessorId: str, oContext: Context = None) 
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/processors/logs/build",
+            f"{s_sWasdiApiUrl}/rest/processors/logs/build",
             params={"processorId": sProcessorId},
             headers={"x-session-token": sSessionToken},
         )
@@ -2241,7 +2242,7 @@ async def get_product_properties(sFileName: str, sWorkspaceId: str, bGetChecksum
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/catalog/properties",
+            f"{s_sWasdiApiUrl}/rest/catalog/properties",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -2276,7 +2277,7 @@ async def eo_data_search_get_count(sQuery: str, sProviders: str = None, oContext
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/search/query/count",
+            f"{s_sWasdiApiUrl}/rest/search/query/count",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -2364,7 +2365,7 @@ async def eo_data_paginated_search(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/search/query",
+            f"{s_sWasdiApiUrl}/rest/search/query",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -2386,7 +2387,7 @@ async def get_data_providers(oContext: Context = None) -> str:
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/search/providers",
+            f"{s_sWasdiApiUrl}/rest/search/providers",
             headers={"x-session-token": sSessionToken},
         )
         oResponse.raise_for_status()
@@ -2420,7 +2421,7 @@ async def eo_data_search_count_list(asQueries: list[str], sProviders: str = None
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/search/query/countlist",
+            f"{s_sWasdiApiUrl}/rest/search/query/countlist",
             params=aoParams,
             json=asQueries,
             headers={"x-session-token": sSessionToken},
@@ -2490,7 +2491,7 @@ async def eo_data_search_list(asQueries: list[str], sProvider: str = None, oCont
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/search/querylist",
+            f"{s_sWasdiApiUrl}/rest/search/querylist",
             params=aoParams,
             json=asQueries,
             headers={"x-session-token": sSessionToken},
@@ -2543,7 +2544,7 @@ async def share_file_to_workspace(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/filebuffer/share",
+            f"{s_sWasdiApiUrl}/rest/filebuffer/share",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -2567,7 +2568,7 @@ async def import_product_in_wasdi(oImageImportViewModel: dict, oContext: Context
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/filebuffer/download",
+            f"{s_sWasdiApiUrl}/rest/filebuffer/download",
             json=oImageImportViewModel,
             headers={"x-session-token": sSessionToken},
         )
@@ -2614,7 +2615,7 @@ async def publish_product_band_in_wms(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/filebuffer/publishband",
+            f"{s_sWasdiApiUrl}/rest/filebuffer/publishband",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -2639,7 +2640,7 @@ async def get_application_packages_list(sName: str, oContext: Context = None) ->
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/packageManager/listPackages",
+            f"{s_sWasdiApiUrl}/rest/packageManager/listPackages",
             params={"name": sName},
             headers={"x-session-token": sSessionToken},
         )
@@ -2664,7 +2665,7 @@ async def get_application_environment_actions_list(sName: str, oContext: Context
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/packageManager/environmentActions",
+            f"{s_sWasdiApiUrl}/rest/packageManager/environmentActions",
             params={"name": sName},
             headers={"x-session-token": sSessionToken},
         )
@@ -2689,7 +2690,7 @@ async def get_application_package_manager_version(sName: str, oContext: Context 
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/packageManager/managerVersion",
+            f"{s_sWasdiApiUrl}/rest/packageManager/managerVersion",
             params={"name": sName},
             headers={"x-session-token": sSessionToken},
         )
@@ -2729,7 +2730,7 @@ async def update_application_environment_with_action(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/packageManager/environmentupdate",
+            f"{s_sWasdiApiUrl}/rest/packageManager/environmentupdate",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -2767,7 +2768,7 @@ async def reset_application_action_list(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/packageManager/reset",
+            f"{s_sWasdiApiUrl}/rest/packageManager/reset",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -2793,7 +2794,7 @@ async def printer_store_new_map(sPrinterViewModelJson: str, oContext: Context = 
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/print/storemap",
+            f"{s_sWasdiApiUrl}/rest/print/storemap",
             content=sPrinterViewModelJson,
             headers={
                 "x-session-token": sSessionToken,
@@ -2821,7 +2822,7 @@ async def printer_print(sUUID: str, oContext: Context = None) -> str:
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/print",
+            f"{s_sWasdiApiUrl}/rest/print",
             params={"uuid": sUUID},
             headers={"x-session-token": sSessionToken},
         )
@@ -2866,7 +2867,7 @@ async def mosaic(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/processing/mosaic",
+            f"{s_sWasdiApiUrl}/rest/processing/mosaic",
             content=sMosaicSettingJson,
             params=aoParams,
             headers={
@@ -2915,7 +2916,7 @@ async def regrid(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/processing/regrid",
+            f"{s_sWasdiApiUrl}/rest/processing/regrid",
             content=sRegridSettingJson,
             params=aoParams,
             headers={
@@ -2969,7 +2970,7 @@ async def multiSubset(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/processing/multisubset",
+            f"{s_sWasdiApiUrl}/rest/processing/multisubset",
             content=sMultiSubsetSettingJson,
             params=aoParams,
             headers={
@@ -3031,7 +3032,7 @@ async def upload_snap_workflow_file(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/uploadfile",
+            f"{s_sWasdiApiUrl}/rest/workflows/uploadfile",
             files={"file": ("workflow.xml", oFileContent, "application/xml")},
             params=aoParams,
             headers={"x-session-token": sSessionToken},
@@ -3079,7 +3080,7 @@ async def update_snap_workflow_file(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/updatefile",
+            f"{s_sWasdiApiUrl}/rest/workflows/updatefile",
             files={"file": ("workflow.xml", oFileContent, "application/xml")},
             params=aoParams,
             headers={"x-session-token": sSessionToken},
@@ -3105,7 +3106,7 @@ async def get_snap_workflow_xml(sWorkflowId: str, oContext: Context = None) -> s
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/getxml",
+            f"{s_sWasdiApiUrl}/rest/workflows/getxml",
             params={"workflowId": sWorkflowId},
             headers={"x-session-token": sSessionToken},
         )
@@ -3137,7 +3138,7 @@ async def update_snap_workflow_xml(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/updatexml",
+            f"{s_sWasdiApiUrl}/rest/workflows/updatexml",
             content=sGraphXml,
             params={"workflowId": sWorkflowId},
             headers={
@@ -3183,7 +3184,7 @@ async def update_snap_workflow_params(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/updateparams",
+            f"{s_sWasdiApiUrl}/rest/workflows/updateparams",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -3205,7 +3206,7 @@ async def get_snap_workflows_by_user(oContext: Context = None) -> str:
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/getbyuser",
+            f"{s_sWasdiApiUrl}/rest/workflows/getbyuser",
             headers={"x-session-token": sSessionToken},
         )
         oResponse.raise_for_status()
@@ -3244,7 +3245,7 @@ async def share_snap_workflow(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.put(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/share/add",
+            f"{s_sWasdiApiUrl}/rest/workflows/share/add",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -3281,7 +3282,7 @@ async def delete_snap_workflow_sharing(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.delete(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/share/delete",
+            f"{s_sWasdiApiUrl}/rest/workflows/share/delete",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -3308,7 +3309,7 @@ async def get_snap_workflow_sharings(sWorkflowId: str, oContext: Context = None)
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/share/byworkflow",
+            f"{s_sWasdiApiUrl}/rest/workflows/share/byworkflow",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )
@@ -3352,7 +3353,7 @@ async def run_snap_workflow(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/run",
+            f"{s_sWasdiApiUrl}/rest/workflows/run",
             content=sWorkflowViewModelJson,
             params=aoParams,
             headers={
@@ -3395,7 +3396,7 @@ async def download_snap_workflow(
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/download",
+            f"{s_sWasdiApiUrl}/rest/workflows/download",
             params=aoParams,
             headers=oHeaders,
         )
@@ -3422,7 +3423,7 @@ async def get_snap_workflow_by_name(sWorkflowName: str, oContext: Context = None
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
-            "https://www.wasdi.net/wasdiwebserver/rest/workflows/byname",
+            f"{s_sWasdiApiUrl}/rest/workflows/byname",
             params=aoParams,
             headers={"x-session-token": sSessionToken},
         )

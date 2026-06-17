@@ -105,7 +105,7 @@ oApp.add_middleware(
 
 oApp.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "testmcp.wasdi.net", "ai-mcp", "*.wasdi.net"] if bAllowAllOrigins else aoCorsOrigins
+    allowed_hosts=["localhost", "127.0.0.1", "testmcp.wasdi.net", "mcp.wasdi.net", "ai-mcp", "*.wasdi.net"] if bAllowAllOrigins else aoCorsOrigins
 )
 
 @s_oMcpServer.tool()

@@ -255,19 +255,28 @@ async def chat(
         )
 
     oChatRepository = ChatRepository()
-    oChat = oChatRepository.getEntityById(sChatId)
 
-    if oChat is None:
-        logging.warning(f"chat. Not chat corresponding to the id {sChatId}")
+    aoChats = oChatRepository.getEntitiesByField({"chatId": sChatId, "userId": sUserId})
+
+    if not aoChats:
+        logging.warning(f"getChat. No chat corresponding to the id {sChatId}")
         raise HTTPException(
-            status_code = status.HTTP_400_BAD_REQUEST,
+            status_code = status.HTTP_404_NOT_FOUND,
             detail="Chat not found"
         )
     
+    if len(aoChats) == 0:
+        logging.warning(f"getChat. Found zero chats for the id {sChatId}")
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    oChat = aoChats[0]    
+
     oTokenReset = X_SESSION_TOKEN_CTX.set(sSessionToken)
 
-    try:
-        
+    try:    
         # Get tools from MCP server
         s_oTools = await s_oMCPClient.get_tools()
 

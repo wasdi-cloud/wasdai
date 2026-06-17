@@ -26,4 +26,4 @@ EXPOSE 8000
 
 # Command to run the application
 # --workers: number of worker processes
-CMD ["gunicorn", "main:oApp", "-k", "uvicorn.workers.UvicornWorker", "--workers", "8", "--bind", "0.0.0.0:8000", "--timeout", "120"]
+CMD ["gunicorn", "mcp_server.wasdiMCPServer:oApp", "-k", "uvicorn.workers.UvicornWorker", "--workers", "8", "--bind", "0.0.0.0:8000", "--timeout", "120"]

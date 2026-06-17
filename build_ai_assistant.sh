@@ -1,1 +1,2 @@
+git pull
 docker build -t wasdai-assistant:latest -f llm_api_server/Dockerfile .

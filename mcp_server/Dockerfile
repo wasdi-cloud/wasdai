@@ -37,6 +37,6 @@ EXPOSE 8000
 # Command to run the application (Shell form allows env var expansion)
 CMD gunicorn mcp_server.wasdiMCPServer:oApp \
     -k uvicorn.workers.UvicornWorker \
-    --workers $WASDAI_WORKERS \
+    --workers 1 \
     --bind 0.0.0.0:8000 \
     --timeout 120

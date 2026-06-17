@@ -24,3 +24,4 @@ httpx
 fastapi
 uvicorn
 pymongo
+gunicorn

@@ -12,14 +12,14 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file
-COPY ./requirements.txt .
+# Copy requirements file from the subfolder relative to the root build context
+COPY llm_api_server/requirements.txt ./llm_api_server/requirements.txt
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r llm_api_server/requirements.txt
 
 # Copy the application code
-COPY . .
+COPY llm_api_server/ ./llm_api_server/
 
 # Expose the port the app runs on
 EXPOSE 8000

@@ -13,13 +13,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
-COPY ./requirements.txt .
+COPY ./requirements.txt ./requirements.txt
 
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the application code
-COPY . .
+COPY mcp_server/ ./mcp_server/
+COPY utils/ ./utils/
 
 # Expose the port the app runs on
 EXPOSE 8000

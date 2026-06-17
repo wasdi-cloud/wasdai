@@ -13,10 +13,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file from the subfolder relative to the root build context
-COPY llm_api_server/requirements.txt ./llm_api_server/requirements.txt
+COPY requirements.txt ./requirements.txt
 
 # Install Python dependencies
-RUN pip3 install --no-cache-dir -r llm_api_server/requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the application code
 COPY llm_api_server/ ./llm_api_server/

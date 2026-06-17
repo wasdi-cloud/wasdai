@@ -18,6 +18,9 @@ COPY ./requirements.txt ./requirements.txt
 # Install Python dependencies
 RUN pip3 install --no-cache-dir -r requirements.txt
 
+# Pre-download the Flashrank model to prevent runtime worker race conditions
+RUN python3 -c "from flashrank import Ranker; Ranker(model_name='ms-marco-MultiBERT-L-12')"
+
 # Copy the application code
 COPY mcp_server/ ./mcp_server/
 COPY ai_agent/ ./ai_agent/

@@ -125,10 +125,10 @@ async def new_chat(x_session_token: Annotated[str | None, Header()] = None):
     oChatRepository = ChatRepository()
 
     sUUID = str(uuid.uuid4())
-    aoChats = oChatRepository.getEntitiesByField({"chatId": sUUID})
-    while aoChats is not None and len(aoChats) > 0:
+    oChat = oChatRepository.getEntityById(sUUID)
+    while oChat is not None:
         sUUID = str(uuid.uuid4())
-        aoChats = oChatRepository.getEntitiesByField({"chatId": sUUID})
+        oChat = oChatRepository.getEntityById(sUUID)
     
     oNewChat = Chat()
     oNewChat.chatId = sUUID
@@ -152,14 +152,12 @@ def getUserFromSession(sSessionToken: str):
             
     # check if the token is associated with a user
     oSessionRepository = SessionRepository()
-    aoSession = oSessionRepository.getEntitiesByField({"sessionId": sSessionToken})
+    oSession = oSessionRepository.getEntityById(sSessionToken)
 
-    if not aoSession:
+    if not oSession:
         logging.warning(f"getUserFromSession. No session found for token: {sSessionToken}")
         return None
-    
-    oSession = aoSession[0]
-    
+        
     # check if the session is not expired
     lNow = int(time.time() * 1000)  # cast to millis
     lTimeSpan = s_oConfig.LLM_server.sessionExpireHours * 60 * 60 * 1000
@@ -172,13 +170,12 @@ def getUserFromSession(sSessionToken: str):
 
     # check if the user id is present
     oUserRepository = UserRepository()
-    aoUsers = oUserRepository.getEntitiesByField({"userId": sUserId})
+    oUser = oUserRepository.getEntityById(sUserId)
 
-    if not aoUsers:
+    if not oUser:
         logging.warning(f"getUserFromSession. No user found for ID: {sUserId}")
         return None
 
-    oUser = aoUsers[0]
     return oUser.userId
 
 
@@ -238,17 +235,15 @@ async def chat(
         raise ValueError("Missing chat id")
 
     oChatRepository = ChatRepository()
-    aoChats = oChatRepository.getEntitiesByField({"chatId": sChatId})
+    oChat = oChatRepository.getEntityById(sChatId)
 
-    if not sChatId or len(aoChats) == 0:
+    if not sChatId:
         logging.warning(f"chat. Not chat corresponding to the id {sChatId}")
         raise HTTPException(
             status_code = status.HTTP_404_NOT_FOUND,
             detail="Chat not found"
         )
     
-    oChat = aoChats[0]
-
     oTokenReset = X_SESSION_TOKEN_CTX.set(sSessionToken)
 
     try:
@@ -274,6 +269,7 @@ async def chat(
             content = f"This is a hardcoded mock response from the WASDI AI agent to the prompt: {sPrompt} "
         oResult = {"messages": [MockMessage()]}
         """
+        
     except Exception as oE:
         logging.error(f"chat. Agent invocation failed: {oE}")
         oResult = None
@@ -370,7 +366,56 @@ async def getChat(
         )
     
 
+@oApp.get("/listChat")
+async def listChat(
+    x_session_token: Annotated[str | None, Header()] = None,
+):
+    """
+    Get the list of all the chats of a user
+    """
+    sSessionToken = (x_session_token or "").strip()
 
+    logging.debug(f"listChat. Received request with token: {sSessionToken}")
+
+    if not isTokenSecure(sSessionToken):
+        logging.warning(f"listChat. Invalid or missing session token: {sSessionToken}")
+        raise ValueError("Invalid or missing session token")
+
+    sUserId = getUserFromSession(sSessionToken)
+
+    if not sUserId:
+        logging.warning(f"listChat. No user associated with session token: {sSessionToken}")
+        raise ValueError("No user associated with this session token")
+
+    logging.info(f"listChat. Session found for token: {sSessionToken}, userId: {sUserId}")
+
+
+    oChatRepository = ChatRepository()
+    try: 
+        aoChatList = oChatRepository.getEntitiesByField({"userId": sUserId})
+
+        if not aoChatList:
+            return []
+        
+        aoChats = []
+
+        for oChat in aoChatList:
+            if oChat.prompts:
+                aoChats.append(
+                    {
+                        "title": oChat.prompts[0][:30],
+                        "chatId": oChat.chatId
+                    }
+                )
+        
+        return aoChats
+                
+    except Exception as oE:
+        logging.warning(f"getChat. Exception creating the chat structure to send to the client {oE}")
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Chat not found"
+        )
 
 
     

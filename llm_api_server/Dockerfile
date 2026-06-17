@@ -20,6 +20,7 @@ RUN pip3 install --no-cache-dir -r llm_api_server/requirements.txt
 
 # Copy the application code
 COPY llm_api_server/ ./llm_api_server/
+COPY utils/ ./utils/
 
 # Expose the port the app runs on
 EXPOSE 8000

@@ -3,6 +3,7 @@ import logging
 import uvicorn
 import os
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp import Context
@@ -99,6 +100,11 @@ oApp.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=not bAllowAllOrigins,
+)
+
+oApp.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1", "testmcp.wasdi.net", "ai-mcp", "*.wasdi.net"] if bAllowAllOrigins else aoCorsOrigins
 )
 
 @s_oMcpServer.tool()

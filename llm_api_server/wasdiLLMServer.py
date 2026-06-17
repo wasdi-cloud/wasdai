@@ -1,20 +1,18 @@
 import logging
 import os
 import uuid
-
 import re
 import time
+import random
+
 from typing import Annotated, Any
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
-
-from fastapi import Body, FastAPI, Header
+from fastapi import FastAPI, Body, Header, Query, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from langchain.agents import create_agent
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_mcp_adapters.interceptors import (
-    MCPToolCallRequest,
-)
+from langchain_mcp_adapters.interceptors import (MCPToolCallRequest,)
 from langchain_openai import ChatOpenAI
 from utils.LoggingConfiguration import setupLogging
 from utils.WasdiConfig import WasdiConfig
@@ -102,6 +100,7 @@ MongoDBClient._s_oConfig = s_oConfig
 async def hello():
     """Endpoint to test if the server is up and running."""
     return "Hello from the WASDI LLM Server!"
+
 
 @oApp.get("/newChat")
 async def new_chat(x_session_token: Annotated[str | None, Header()] = None):
@@ -208,41 +207,107 @@ def isTokenSecure(sSessionToken: str) -> bool:
 @oApp.post("/chat")
 async def chat(
     sPrompt: Annotated[str, Body()],
+    sChatId: Annotated[str, Query(alias="chatId")], 
     x_session_token: Annotated[str | None, Header()] = None,
 ):
+    """
+    Implements an interaction between a user and the ai agent. 
+    :param sPrompt: the user's prompt
+    :param sChatId: the unique identifier of the chat
+    """
     sSessionToken = (x_session_token or "").strip()
-    if not sSessionToken:
-        raise ValueError("Missing x-session-token header")
 
     logging.debug(f"Received request with token: {sSessionToken} and prompt: {sPrompt}")
 
+    if not isTokenSecure(sSessionToken):
+        logging.warning(f"chat. Invalid or missing session token: {sSessionToken}")
+        raise ValueError("Invalid or missing session token")
+
+    sUserId = getUserFromSession(sSessionToken)
+
+    if not sUserId:
+        logging.warning(f"chat. No user associated with session token: {sSessionToken}")
+        raise ValueError("No user associated with this session token")
+
+    logging.info(f"chat. Session found for token: {sSessionToken}, userId: {sUserId}")
+
+
+    if not sChatId:
+        logging.warning(f"chat. Chat id not specified")
+        raise ValueError("Missing chat id")
+
+    oChatRepository = ChatRepository()
+    aoChats = oChatRepository.getEntitiesByField({"chatId": sChatId})
+
+    if not sChatId or len(aoChats) == 0:
+        logging.warning(f"chat. Not chat corresponding to the id {sChatId}")
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    oChat = aoChats[0]
+
     oTokenReset = X_SESSION_TOKEN_CTX.set(sSessionToken)
+
     try:
+        
         # Get tools from MCP server
         s_oTools = await s_oMCPClient.get_tools()
 
         # RUN THE AGENT
         oAgent = create_agent(model=s_oLLM, tools=s_oTools)
 
+        
         oResult = await oAgent.ainvoke(
-            {"messages": [{"role": "user", "content": sPrompt}]}
+            {
+                "messages": 
+                    [
+                        {"role": "user", 
+                         "content": sPrompt}
+                    ]
+            }
         )
+        """
+        class MockMessage:
+            content = f"This is a hardcoded mock response from the WASDI AI agent with a random number {random.randint(1, 10)}"
+        oResult = {"messages": [MockMessage()]}
+        """
+    except Exception as oE:
+        logging.error(f"chat. Agent invocation failed: {oE}")
+        oResult = None
     finally:
         X_SESSION_TOKEN_CTX.reset(oTokenReset)
 
-    sResponse = oResult["messages"][-1].content
-    logging.info(f"PROMPT: {sPrompt}")
-    logging.info(f"Response from MCP agent: {sResponse}")
-    return sResponse
-    """
-    # Return available tools info for now
-    return {
-        "prompt": sPrompt,
-        "tools_available": len(tools),
-        "tool_names": [tool.name for tool in tools]
-    }
-    """
+    if not oResult:
+        return "The WASDI AI agent encountered an error while processing your request"  # TODO: translation?
+    
+    if not isinstance(oResult, dict) or "messages" not in oResult:
+        logging.error("chat. Unexpected agent output format")
+        return "The WASDI AI agent encountered an error while processing your request" # TODO
+    
+    oLastMessage = oResult["messages"][-1]
+    
+    sResponse = getattr(oLastMessage, "content", None)
 
+    if not sResponse:
+        logging.warning("chat. Agent returned a message without no text content")
+        sResponse = "I processed your request, but I have no text response to provide" # TODO
+
+
+    # now it is the moment to store the chat into the db
+    aoPrompts = oChat.prompts + [sPrompt]
+    aoAnswers = oChat.answers + [sResponse]
+
+    oChat.prompts = aoPrompts
+    oChat.answers = aoAnswers
+
+    if oChatRepository.updateAllEntities([oChat]) < 0:
+        logging.warning("chat. Chat was not updated")
+
+    logging.info(f"chat. Returining answer to the user")
+
+    return sResponse
 
 
 if __name__ == "__main__":

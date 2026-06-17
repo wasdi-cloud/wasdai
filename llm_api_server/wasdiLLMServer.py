@@ -475,7 +475,8 @@ async def listChat(
                 aoChats.append(
                     {
                         "title": f"{oChat.prompts[0][:30]}...",
-                        "chatId": oChat.chatId
+                        "chatId": oChat.chatId,
+                        "timestamp": oChat.startDate
                     }
                 )
         

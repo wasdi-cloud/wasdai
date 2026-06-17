@@ -1,6 +1,8 @@
 # Use an official Python image with GDAL support for geospatial libraries
 FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.0
 
+ENV WASDAI_WORKERS=2
+
 # Set working directory
 WORKDIR /app
 
@@ -27,4 +29,4 @@ EXPOSE 8000
 
 # Command to run the application
 # --workers: number of worker processes.
-CMD ["gunicorn", "llm_api_server.wasdiLLMServer:oApp", "-k", "uvicorn.workers.UvicornWorker", "--workers", "8", "--bind", "0.0.0.0:8000", "--timeout", "120"]
+CMD ["gunicorn", "llm_api_server.wasdiLLMServer:oApp", "-k", "uvicorn.workers.UvicornWorker", "--workers", "$WASDAI_WORKERS", "--bind", "0.0.0.0:8000", "--timeout", "120"]

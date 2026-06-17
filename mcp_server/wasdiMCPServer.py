@@ -7,6 +7,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp import Context
+from mcp.server.transport_security import TransportSecuritySettings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI
@@ -86,7 +87,7 @@ s_oRAGChain = RAGChain(
     oPrompt=s_oCustomRAGPrompt
 )
 
-s_oMcpServer = FastMCP("wasdi-mcp-server", "0.1.0")
+s_oMcpServer = FastMCP("wasdi-mcp-server", "0.1.0", transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
 
 oApp = s_oMcpServer.streamable_http_app()
 

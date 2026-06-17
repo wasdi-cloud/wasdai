@@ -399,15 +399,23 @@ async def getChat(
         )
     
     try:
-        asPrompts = oChat.prompts
-        asAnswers = oChat.answers
+        sTitle = "No title" #TODO: translation
+        if oChat.prompts: 
+            sFirstPrompt = oChat.prompts[0]
+            # Check if it needs truncation
+            if len(sFirstPrompt) > 30:
+                sTitle = f"{sFirstPrompt[:30]}..."
+            else:
+                sTitle = sFirstPrompt
 
-        aoCombinedConversation = [
-                { "prompt": sPrompt, "answer": sAnswer}
-                for sPrompt, sAnswer in zip_longest(asPrompts, asAnswers)
-            ]
 
-        return aoCombinedConversation
+        return {
+            "chatId": oChat.chatId,
+            "timestamp": oChat.startDate,
+            "title": sTitle,
+            "prompts": oChat.prompts,
+            "answers": oChat.answers
+        }
     
     except Exception as oE:
         logging.warning(f"getChat. Exception creating the chat structure to send to the client {oE}")

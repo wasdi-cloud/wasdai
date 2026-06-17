@@ -5,6 +5,7 @@ import re
 import time
 
 from typing import Annotated, Any
+from itertools import zip_longest
 from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from fastapi import FastAPI, Body, Header, Query, HTTPException, status
@@ -104,7 +105,8 @@ async def hello():
 @oApp.get("/newChat")
 async def new_chat(x_session_token: Annotated[str | None, Header()] = None):
     """Endpoint to initialize a new chat session."""
-    logging.info("Initializing new chat session")
+    
+    logging.info("newChat. Initializing new chat session")
 
     sSessionToken = (x_session_token or "").strip()
 
@@ -216,7 +218,7 @@ async def chat(
     """
     sSessionToken = (x_session_token or "").strip()
 
-    logging.debug(f"Received request with token: {sSessionToken} and prompt: {sPrompt}")
+    logging.debug(f"chat. Received request with token: {sSessionToken} and prompt: {sPrompt}")
 
     if not isTokenSecure(sSessionToken):
         logging.warning(f"chat. Invalid or missing session token: {sSessionToken}")
@@ -307,6 +309,71 @@ async def chat(
     logging.info(f"chat. Returining answer to the user")
 
     return sResponse
+
+
+@oApp.get("/getChat")
+async def getChat(
+    sChatId: Annotated[str, Query(alias="chatId")], 
+    x_session_token: Annotated[str | None, Header()] = None,
+):
+    """
+    Get all the messages exchanged in a chat between the user and the  AI assistant
+    :param sChatId: the unique identifier of the chat
+    """
+    sSessionToken = (x_session_token or "").strip()
+
+    logging.debug(f"getChat. Received request with token: {sSessionToken}")
+
+    if not isTokenSecure(sSessionToken):
+        logging.warning(f"getChat. Invalid or missing session token: {sSessionToken}")
+        raise ValueError("Invalid or missing session token")
+
+    sUserId = getUserFromSession(sSessionToken)
+
+    if not sUserId:
+        logging.warning(f"getChat. No user associated with session token: {sSessionToken}")
+        raise ValueError("No user associated with this session token")
+
+    logging.info(f"getChat. Session found for token: {sSessionToken}, userId: {sUserId}")
+
+
+    if not sChatId:
+        logging.warning(f"getChat. Chat id not specified")
+        raise ValueError("Missing chat id")
+
+    oChatRepository = ChatRepository()
+    oChat = oChatRepository.getEntityById(sChatId)
+
+    if not oChat:
+        logging.warning(f"getChat. Not chat corresponding to the id {sChatId}")
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    try:
+        asPrompts = oChat.prompts
+        asAnswers = oChat.answers
+
+        aoCombinedConversation = [
+                { "prompt": sPrompt, "answer": sAnswer}
+                for sPrompt, sAnswer in zip_longest(asPrompts, asAnswers)
+            ]
+
+        return aoCombinedConversation
+    
+    except Exception as oE:
+        logging.warning(f"getChat. Exception creating the chat structure to send to the client {oE}")
+        raise HTTPException(
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Chat not found"
+        )
+    
+
+
+
+
+    
 
 
 if __name__ == "__main__":

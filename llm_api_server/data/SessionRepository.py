@@ -6,5 +6,6 @@ class SessionRepository(MongoRepository):
     def __init__(self):
         super().__init__()
         self.m_sCollectionName = "sessions"
+        self.m_sId = "sessionId"
         self.m_sEntityClassName = f"{Session.__module__}.{Session.__qualname__}"
 

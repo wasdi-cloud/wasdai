@@ -3,7 +3,6 @@ import os
 import uuid
 import re
 import time
-import random
 
 from typing import Annotated, Any
 from collections.abc import Awaitable, Callable
@@ -270,7 +269,7 @@ async def chat(
         )
         """
         class MockMessage:
-            content = f"This is a hardcoded mock response from the WASDI AI agent with a random number {random.randint(1, 10)}"
+            content = f"This is a hardcoded mock response from the WASDI AI agent to the prompt: {sPrompt} "
         oResult = {"messages": [MockMessage()]}
         """
     except Exception as oE:
@@ -302,7 +301,7 @@ async def chat(
     oChat.prompts = aoPrompts
     oChat.answers = aoAnswers
 
-    if oChatRepository.updateAllEntities([oChat]) < 0:
+    if oChatRepository.updateEntity(oChat) < 0:
         logging.warning("chat. Chat was not updated")
 
     logging.info(f"chat. Returining answer to the user")

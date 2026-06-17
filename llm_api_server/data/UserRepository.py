@@ -6,4 +6,5 @@ class UserRepository(MongoRepository):
     def __init__(self):
         super().__init__()
         self.m_sCollectionName = "users"
+        self.m_sId = "userId"
         self.m_sEntityClassName = f"{User.__module__}.{User.__qualname__}"

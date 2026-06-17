@@ -9,6 +9,7 @@ class MongoRepository:
 
     def __init__(self):
         self.m_sCollectionName = None
+        self.m_sId = None
         self.m_sEntityClassName = None
 
     def getCollection(self):
@@ -45,7 +46,8 @@ class MongoRepository:
                 logging.warning(f"MongoRepository.findEntityById. Collection {self.m_sCollectionName} not found in {MongoRepository.s_sDB_NAME} database")
                 return None
 
-            oRetrievedResult = oCollection.find({"id": sEntityId})
+        
+            oRetrievedResult = oCollection.find({self.m_sId: sEntityId})
 
             if oRetrievedResult is None:
                 logging.info(f"MongoRepository.findEntityById. No results retrieved from db")
@@ -112,7 +114,7 @@ class MongoRepository:
                 logging.warning(f"MongoRepository.findAllEntitiesById. Collection {self.m_sCollectionName} not found in {MongoRepository.s_sDB_NAME} database")
                 return None
 
-            oRetrievedResult = oCollection.find({"id": {"$in": asEntityIds}})
+            oRetrievedResult = oCollection.find({self.m_sId: {"$in": asEntityIds}})
 
             if oRetrievedResult is None:
                 logging.debug(f"MongoRepository.findAllEntitiesById. No results retrieved from db")
@@ -192,11 +194,12 @@ class MongoRepository:
         :param oEntity: the entity to update
         :return: True if the update was successful, False otherwise
         """
-        if oEntity is None or 'id' not in vars(oEntity):
+        if oEntity is None or self.m_sId not in vars(oEntity):
             logging.warning("MongoRepository.updateEntity. The provided entity is None or is missing the 'id' filed")
             return False
 
-        oQuery = {"id": oEntity.id}
+        sEntityId = getattr(oEntity, self.m_sId)
+        oQuery = {self.m_sId: sEntityId}
         oUpdatedDocument = {"$set": vars(oEntity)}
 
         try:
@@ -249,10 +252,11 @@ class MongoRepository:
             for oEntity in aoEntities:
 
                 try: 
-                    if not hasattr(oEntity, 'id'):
+                    if not hasattr(oEntity, self.m_sId):
                         logging.warning(f"MongoRepository.updateAllEntities. Entity missing 'id' {oEntity}")
                         continue
-                    oQuery = {"id": oEntity.id}
+                    sEntityId = getattr(oEntity, self.m_sId)
+                    oQuery = {self.m_sId: sEntityId}
                     oUpdatedDocument = {"$set": vars(oEntity)}
 
                     try:
@@ -266,7 +270,7 @@ class MongoRepository:
                     if oResult.modified_count > 0:
                         iUpdatedEntities += 1
                     else:
-                        logging.warning(f"MongoRepository.updateAllEntities. Entity {oEntity.id} not updated")
+                        logging.warning(f"MongoRepository.updateAllEntities. Entity {sEntityId} not updated")
             
                 except Exception as oEx2:
                     logging.error(f"MongoRepository.updateAllEntities. Exception while processing one entity: {oEx2}")
@@ -293,7 +297,7 @@ class MongoRepository:
                 logging.warning(f"MongoRepository.deleteEntity. Collection {self.m_sCollectionName} not found in {MongoRepository.s_sDB_NAME} database")
                 return False
 
-            oResult = oCollection.delete_one({"id": sEntityId})
+            oResult = oCollection.delete_one({self.m_sId: sEntityId})
 
             if oResult.deleted_count > 0:
                 return True
@@ -323,7 +327,7 @@ class MongoRepository:
                 logging.warning(f"MongoRepository.deleteAllEntitiesById. Collection {self.m_sCollectionName} not found in {MongoRepository.s_sDB_NAME} database")
                 return False
 
-            oResult = oCollection.delete_many({"id": {"$in": asEntityIds}})
+            oResult = oCollection.delete_many({self.m_sId: {"$in": asEntityIds}})
 
             if oResult.deleted_count > 0:
                 return True

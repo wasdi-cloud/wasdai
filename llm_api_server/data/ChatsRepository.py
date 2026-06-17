@@ -6,4 +6,5 @@ class ChatRepository(MongoRepository):
     def __init__(self):
         super().__init__()
         self.m_sCollectionName = "chats"
+        self.m_sId = "chatId"
         self.m_sEntityClassName = f"{Chat.__module__}.{Chat.__qualname__}"

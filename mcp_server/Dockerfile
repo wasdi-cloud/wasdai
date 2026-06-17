@@ -20,6 +20,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the application code
 COPY mcp_server/ ./mcp_server/
+COPY ai_agent/ ./ai_agent/
 COPY utils/ ./utils/
 
 # Expose the port the app runs on

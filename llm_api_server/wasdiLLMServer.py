@@ -255,14 +255,23 @@ async def chat(
         )
 
     oChatRepository = ChatRepository()
-    oChat = oChatRepository.getEntityById(sChatId)
+    aoChats = oChatRepository.getEntitiesByField({"chatId": sChatId})
 
-    if not sChatId:
+    if not aoChats:
         logging.warning(f"chat. Not chat corresponding to the id {sChatId}")
         raise HTTPException(
             status_code = status.HTTP_404_NOT_FOUND,
             detail="Chat not found"
         )
+    
+    if len(aoChats) == 0:
+        logging.warning(f"chat. No chat found for the id {sChatId}")
+        raise HTTPException(
+            status_code = status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    oChat = aoChats[0]
     
     oTokenReset = X_SESSION_TOKEN_CTX.set(sSessionToken)
 

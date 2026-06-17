@@ -229,20 +229,29 @@ async def chat(
 
     if not isTokenSecure(sSessionToken):
         logging.warning(f"chat. Invalid or missing session token: {sSessionToken}")
-        raise ValueError("Invalid or missing session token")
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing session token"
+        )
 
     sUserId = getUserFromSession(sSessionToken)
 
     if not sUserId:
         logging.warning(f"chat. No user associated with session token: {sSessionToken}")
-        raise ValueError("No user associated with this session token")
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="No user associated with this session token"
+        )
 
     logging.info(f"chat. Session found for token: {sSessionToken}, userId: {sUserId}")
 
 
     if not sChatId:
         logging.warning(f"chat. Chat id not specified")
-        raise ValueError("Missing chat id")
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail="Missing chat id"
+        )
 
     oChatRepository = ChatRepository()
     oChat = oChatRepository.getEntityById(sChatId)
@@ -332,20 +341,29 @@ async def getChat(
 
     if not isTokenSecure(sSessionToken):
         logging.warning(f"getChat. Invalid or missing session token: {sSessionToken}")
-        raise ValueError("Invalid or missing session token")
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing session token"
+        )
 
     sUserId = getUserFromSession(sSessionToken)
 
     if not sUserId:
         logging.warning(f"getChat. No user associated with session token: {sSessionToken}")
-        raise ValueError("No user associated with this session token")
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="No user associated with this session token"
+        )
 
     logging.info(f"getChat. Session found for token: {sSessionToken}, userId: {sUserId}")
 
 
     if not sChatId:
         logging.warning(f"getChat. Chat id not specified")
-        raise ValueError("Missing chat id")
+        raise HTTPException(
+            status_code = status.HTTP_400_BAD_REQUEST,
+            detail="Missing chat id"
+        )
 
     oChatRepository = ChatRepository()
     oChat = oChatRepository.getEntityById(sChatId)
@@ -386,12 +404,19 @@ async def listChat(
     logging.debug(f"listChat. Received request with token: {sSessionToken}")
     if not isTokenSecure(sSessionToken):
         logging.warning(f"listChat. Invalid or missing session token: {sSessionToken}")
-        raise ValueError("Invalid or missing session token")
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing session token"
+        )
+    
     sUserId = getUserFromSession(sSessionToken)
 
     if not sUserId:
         logging.warning(f"listChat. No user associated with session token: {sSessionToken}")
-        raise ValueError("No user associated with this session token")
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="No user associated with this session token"
+        )
 
     logging.info(f"listChat. Session found for token: {sSessionToken}, userId: {sUserId}")
 

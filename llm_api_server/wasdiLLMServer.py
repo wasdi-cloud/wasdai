@@ -408,15 +408,7 @@ async def getChat(
     oChat = aoChats[0]
     
     try:
-        sTitle = "No title" #TODO: translation
-        if oChat.prompts: 
-            sFirstPrompt = oChat.prompts[0]
-            # Check if it needs truncation
-            if len(sFirstPrompt) > 30:
-                sTitle = f"{sFirstPrompt[:30]}..."
-            else:
-                sTitle = sFirstPrompt
-
+        sTitle = getTitle(oChat.prompts) 
 
         return {
             "chatId": oChat.chatId,
@@ -471,14 +463,15 @@ async def listChat(
         aoChats = []
 
         for oChat in aoChatList:
-            if oChat.prompts:
+                sTitle = getTitle(oChat.prompts)
                 aoChats.append(
                     {
-                        "title": f"{oChat.prompts[0][:30]}...",
+                        "title": sTitle,
                         "chatId": oChat.chatId,
                         "timestamp": oChat.startDate
                     }
                 )
+
         
         return aoChats
                 
@@ -489,6 +482,16 @@ async def listChat(
             detail="Chat not found"
         )
 
+def getTitle(aoPrompts) -> str:
+        sTitle = "No title" #TODO: translation
+        if aoPrompts: 
+            sFirstPrompt = aoPrompts[0]
+            # Check if it needs truncation
+            if len(sFirstPrompt) > 30:
+                sTitle = f"{sFirstPrompt[:30]}..."
+            else:
+                sTitle = sFirstPrompt
+        return sTitle
 
 if __name__ == "__main__":
     import uvicorn

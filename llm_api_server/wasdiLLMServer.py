@@ -276,7 +276,27 @@ async def chat(
 
     oTokenReset = X_SESSION_TOKEN_CTX.set(sSessionToken)
 
-    try:    
+    try:
+        # implement chat history
+        aoMessages = [] 
+        aoPastPairs = list(zip_longest(oChat.prompts, oChat.answers))[-10:] # Take only the last 10 exchanges to avoid growing the context window
+        for sPastPrompt, sPastAnswer in aoPastPairs:
+            if sPastPrompt:
+                aoMessages.append(
+                    {"role": "user", 
+                     "content": sPastPrompt})
+            if sPastAnswer:
+                aoMessages.append(
+                    {"role": "assistant",
+                     "content": sPastAnswer }
+                )
+
+        # at last, append the most recent prompt
+        aoMessages.append(
+            { "role": "user", 
+              "content": sPrompt}
+        )
+
         # Get tools from MCP server
         s_oTools = await s_oMCPClient.get_tools()
 
@@ -286,11 +306,7 @@ async def chat(
         
         oResult = await oAgent.ainvoke(
             {
-                "messages": 
-                    [
-                        {"role": "user", 
-                         "content": sPrompt}
-                    ]
+                "messages": aoMessages
             }
         )
         """

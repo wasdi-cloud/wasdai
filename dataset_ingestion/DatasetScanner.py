@@ -67,8 +67,10 @@ class DatasetScanner:
         
         oResultDict = {}
         iCount = 0
+        asIgnoredFolders = {"venv", ".venv", ".idea", "__pycache__"}
 
-        for sRootPath, _, asFileNames in os.walk(oFolderPath):
+        for sRootPath, asDirNames, asFileNames in os.walk(oFolderPath):
+            asDirNames[:] = [sDirName for sDirName in asDirNames if sDirName not in asIgnoredFolders]
             for sFileName in asFileNames:
                 iCount += 1
                 oFilePath = Path(sRootPath) / sFileName
@@ -96,7 +98,7 @@ class DatasetScanner:
         :param oDbSnapshot: dict of {file_path: file_hash} representing the current metadata stored in the database
         """
         oFolderSnapshot = self._scan()
- 
+
         oDatasetFilePaths = set(oFolderSnapshot.keys())
         oDbPaths = set(oDbSnapshot.keys())
 

@@ -2,6 +2,9 @@ llama-index
 llama-index-readers-file
 unstructured[all-docs]
 chromadb
+tree-sitter>=0.22.0
+tree-sitter-python
+tree-sitter-java
 sentence-transformers
 python-magic-bin; sys_platform == 'win32'
 #ai-agent

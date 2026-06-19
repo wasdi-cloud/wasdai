@@ -131,9 +131,9 @@ def main():
 
     oDbSnapshot = oChromaStore.getStoredFiles()
 
-    oLogger.info(f"main. Files currently stored in the Chroma vector store")
+    oLogger.info(f"main. Number iles currently stored in the Chroma vector store: {len(oDbSnapshot.items())}")
     for sFilePath, sFileHash in oDbSnapshot.items():
-        oLogger.info(f"main. File in DB: {sFilePath}, hash: {sFileHash}")
+        oLogger.debug(f"main. File in DB: {sFilePath}, hash: {sFileHash}")
 
     # understand which files are new or updated wrt what is stored in the DB
     

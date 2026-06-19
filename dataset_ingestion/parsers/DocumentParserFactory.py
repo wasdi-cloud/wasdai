@@ -3,6 +3,7 @@ import logging
 from .StructuredParser import StructuredParser
 from .RSTParser import RSTParser
 from .BaseParser import BaseParser
+from .CodeParser import CodeParser
 
 from pathlib import Path
 
@@ -16,8 +17,10 @@ class DocumentParserFactory:
         ".pdf": [StructuredParser, 1000, 100],
         ".docx": [StructuredParser, 1000, 100],  # TODO: check
         ".rtf": [StructuredParser, 1000, 100], # TODO: check
-        ".rst": [RSTParser, 500, 100]
-        # TODO: java e python
+        ".rst": [RSTParser, 500, 100],
+        # for code, the parameters are not the chunk size and overlap, but the lines and line overlap, which will be mapped inside the CodeParser
+        ".py":   [CodeParser, 40, 5],            
+        ".java": [CodeParser, 40, 5]
     }
 
     @classmethod

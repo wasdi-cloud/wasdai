@@ -7,6 +7,8 @@ from dataset_ingestion.ChromaStore import ChromaStore
 from utils.LoggingConfiguration import setupLogging
 from dataset_ingestion.Embedder import Embedder
 from dataset_ingestion.parsers.DocumentParserFactory import DocumentParserFactory
+from collections import Counter
+from pathlib import Path
 
 setupLogging()
 
@@ -112,6 +114,38 @@ def visualizeDbContent():
         sCategory = results["metadatas"][i].get("category", "N/A")
         sFileName = results["metadatas"][i].get("sourcePath", "N/A")
         print(f"{sFileName} | {sDocId[-15:]:<20} | {sCategory:<15} | {sContent}...")
+
+
+def visualizeDbContentByExtension():
+    """
+    Utility function to visualize how many unique files are stored per file extension
+    """
+    from collections import defaultdict
+    import os
+
+    client = chromadb.PersistentClient("C:\\WASDI\\ChromaDB")
+    collection = client.get_collection(name="embeddings")
+
+    results = collection.get(include=["metadatas"])
+
+    unique_paths = set()
+    for metadata in results["metadatas"]:
+        source_path = metadata.get("sourcePath", "")
+        if source_path:
+            unique_paths.add(source_path)
+
+    extension_counts = defaultdict(int)
+    for path in unique_paths:
+        _, ext = os.path.splitext(path)
+        ext = ext.lower() if ext else "(no extension)"
+        extension_counts[ext] += 1
+
+    total_unique_files = len(unique_paths)
+    print(f"Files per extension (unique files: {total_unique_files}):")
+    print("-" * 40)
+
+    for ext, count in sorted(extension_counts.items(), key=lambda x: -x[1]):
+        print(f"  {ext:<20} : {count}")
     
             
 
@@ -204,12 +238,14 @@ def main():
 
 if __name__ == "__main__":
 
-    iParameter = 2
+    iParameter = 1
 
     if iParameter == 1:
         main()
-    else:
+    elif iParameter == 2:
         visualizeDbContent()
+    elif iParameter == 3:
+        visualizeDbContentByExtension()
 
         
 

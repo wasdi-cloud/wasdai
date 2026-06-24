@@ -476,6 +476,8 @@ async def listChat(
         if not aoChatList:
             return []
         
+        aoChatList.sort(key=lambda oChat : oChat.startDate, reverse=True)
+        
         aoChats = []
 
         for oChat in aoChatList:

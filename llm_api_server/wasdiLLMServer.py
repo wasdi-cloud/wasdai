@@ -276,8 +276,6 @@ async def chat(
     
     oChat = aoChats[0]    
 
-    oTokenReset = X_SESSION_TOKEN_CTX.set(sSessionToken)
-
     try:
         # implement chat history
         aoMessages = [] 
@@ -300,6 +298,9 @@ async def chat(
 
             # stream the response chunks
             async def event_generator():
+
+                oTokenReset = X_SESSION_TOKEN_CTX.set(sSessionToken)
+
                 sFullResponse = ""
 
                 try: 
@@ -321,6 +322,9 @@ async def chat(
                     sFullResponse += sError
                     yield sError
                 finally:
+                    # Fallback context reset in case generator setup fails before yielding
+                    X_SESSION_TOKEN_CTX.reset(oTokenReset)
+                                        
                     if sFullResponse:
                         # now it is the moment to store the chat into the db
                         aoPrompts = oChat.prompts + [sPrompt]
@@ -354,8 +358,6 @@ async def chat(
                     "X-Accel-Buffering": "no"  # This is the magic bullet for Nginx/Proxies
                 })
         except Exception as oE:
-            # Fallback context reset in case generator setup fails before yielding
-            X_SESSION_TOKEN_CTX.reset(oTokenReset)
             logging.error(f"chat. Setup failed: {oE}")
             raise HTTPException(status_code=500, detail="Internal Server Error")
     except Exception as oE:

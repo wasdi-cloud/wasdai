@@ -92,31 +92,13 @@ s_oRAGChain = RAGChain(
 
 s_oMcpServer = FastMCP("wasdi-mcp-server", 
                        "0.1.0", 
-
                        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
 
 oApp = s_oMcpServer.streamable_http_app()
 
-@asynccontextmanager
-async def mcp_lifespan(app: FastAPI):
-    # This keeps the streamable_http session connections open globally
-    async with s_oMcpServer.run_transport_managers():
-        yield
-        
-oApp.router.lifespan_context = mcp_lifespan
-
 sCorsOrigins = os.getenv("WASDI_CORS_ALLOW_ORIGINS", "*")
 aoCorsOrigins = [sOrigin.strip() for sOrigin in sCorsOrigins.split(",") if sOrigin.strip()]
 bAllowAllOrigins = "*" in aoCorsOrigins
-
-allowed_hosts = ["localhost", "127.0.0.1", "testmcp.wasdi.net", "mcp.wasdi.net", "ai-mcp", "*.wasdi.net"]
-if not bAllowAllOrigins:
-    # Merge CORS domains with your trusted system hostnames
-    allowed_hosts = list(set(allowed_hosts + aoCorsOrigins))
-else:
-     # Allow all during open CORS mode to prevent drops
-    allowed_hosts = ["*"]
-
 
 oApp.add_middleware(
     CORSMiddleware,
@@ -126,9 +108,17 @@ oApp.add_middleware(
     allow_credentials=not bAllowAllOrigins,
 )
 
+asAllowedHosts = ["localhost", "127.0.0.1", "testmcp.wasdi.net", "mcp.wasdi.net", "ai-mcp", "*.wasdi.net"]
+if not bAllowAllOrigins:
+    # Merge CORS domains with your trusted system hostnames
+    asAllowedHosts = list(set(asAllowedHosts + aoCorsOrigins))
+else:
+     # Allow all during open CORS mode to prevent drops
+    asAllowedHosts = ["*"]
+
 oApp.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=allowed_hosts
+    allowed_hosts=asAllowedHosts
 )
 
 @s_oMcpServer.tool()

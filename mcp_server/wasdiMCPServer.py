@@ -1,5 +1,3 @@
-from fastapi import FastAPI
-from fastapi.concurrency import asynccontextmanager
 import httpx
 import logging
 import uvicorn
@@ -90,9 +88,7 @@ s_oRAGChain = RAGChain(
     oPrompt=s_oCustomRAGPrompt
 )
 
-s_oMcpServer = FastMCP("wasdi-mcp-server", 
-                       "0.1.0", 
-                       transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+s_oMcpServer = FastMCP("wasdi-mcp-server", "0.1.0", transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
 
 oApp = s_oMcpServer.streamable_http_app()
 
@@ -108,17 +104,9 @@ oApp.add_middleware(
     allow_credentials=not bAllowAllOrigins,
 )
 
-asAllowedHosts = ["localhost", "127.0.0.1", "testmcp.wasdi.net", "mcp.wasdi.net", "ai-mcp", "*.wasdi.net"]
-if not bAllowAllOrigins:
-    # Merge CORS domains with your trusted system hostnames
-    asAllowedHosts = list(set(asAllowedHosts + aoCorsOrigins))
-else:
-     # Allow all during open CORS mode to prevent drops
-    asAllowedHosts = ["*"]
-
 oApp.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=asAllowedHosts
+    allowed_hosts=["localhost", "127.0.0.1", "testmcp.wasdi.net", "mcp.wasdi.net", "ai-mcp", "*.wasdi.net"] if bAllowAllOrigins else aoCorsOrigins
 )
 
 @s_oMcpServer.tool()

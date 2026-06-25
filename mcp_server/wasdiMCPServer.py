@@ -92,14 +92,18 @@ s_oRAGChain = RAGChain(
 
 s_oMcpServer = FastMCP("wasdi-mcp-server", 
                        "0.1.0", 
+
                        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+
+oApp = s_oMcpServer.streamable_http_app()
+
 @asynccontextmanager
 async def mcp_lifespan(app: FastAPI):
     # This keeps the streamable_http session connections open globally
     async with s_oMcpServer.run_transport_managers():
         yield
         
-oApp = s_oMcpServer.streamable_http_app(lifespan=mcp_lifespan)
+oApp.router.lifespan_context = mcp_lifespan
 
 sCorsOrigins = os.getenv("WASDI_CORS_ALLOW_ORIGINS", "*")
 aoCorsOrigins = [sOrigin.strip() for sOrigin in sCorsOrigins.split(",") if sOrigin.strip()]

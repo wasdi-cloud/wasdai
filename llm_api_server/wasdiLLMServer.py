@@ -12,6 +12,7 @@ from contextvars import ContextVar
 from fastapi import FastAPI, Body, Header, Query, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from langchain.agents import create_agent
+from fastapi.responses import StreamingResponse
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_mcp_adapters.interceptors import (MCPToolCallRequest,)
 from langchain_openai import ChatOpenAI
@@ -62,7 +63,8 @@ logging.info(f"LLM Model: {sModel}")
 s_oLLM = ChatOpenAI(
     base_url=sEndpoint + "/v1",
     api_key=sToken,
-    model=sModel
+    model=sModel,
+    streaming=True
 )
 
 if s_oLLM:
@@ -282,87 +284,83 @@ async def chat(
         aoPastPairs = list(zip_longest(oChat.prompts, oChat.answers))[-10:] # Take only the last 10 exchanges to avoid growing the context window
         for sPastPrompt, sPastAnswer in aoPastPairs:
             if sPastPrompt:
-                aoMessages.append(
-                    {"role": "user", 
-                     "content": sPastPrompt})
+                aoMessages.append({"role": "user", "content": sPastPrompt})
             if sPastAnswer:
-                aoMessages.append(
-                    {"role": "assistant",
-                     "content": sPastAnswer }
-                )
-
+                aoMessages.append({"role": "assistant", "content": sPastAnswer })
         # at last, append the most recent prompt
         aoMessages.append(
-            { "role": "user", 
-              "content": sPrompt}
-        )
+            { "role": "user", "content": sPrompt})
 
-        # Get tools from MCP server
-        s_oTools = await s_oMCPClient.get_tools()
+        try:
+            # Get tools from MCP server
+            s_oTools = await s_oMCPClient.get_tools()
 
-        # RUN THE AGENT
-        oAgent = create_agent(model=s_oLLM, tools=s_oTools)
+            # RUN THE AGENT
+            oAgent = create_agent(model=s_oLLM, tools=s_oTools)
 
-        
-        oResult = await oAgent.ainvoke(
-            {
-                "messages": aoMessages
-            }
-        )
-        """
-        class MockMessage:
-            content = f"This is a hardcoded mock response from the WASDI AI agent to the prompt: {sPrompt} "
-        oResult = {"messages": [MockMessage()]}
-        """
-        
+            # stream the response chunks
+            async def event_generator():
+                sFullResponse = ""
+
+                try: 
+                    async for oEvent in oAgent.astream_events({"messages": aoMessages}, version="v2"):
+                        # select only the messages where the LLM is actually typing text
+                        sType = oEvent.get("event")
+                        if sType == "on_chat_model_stream":
+                            oChunk = oEvent.get("data", {}).get("chunk")
+                            if oChunk and hasattr(oChunk, "content") and oChunk.content:
+                                sToken = oChunk.content
+                                sFullResponse += sToken
+                                yield sToken    # yield the text chunk directly to the client
+                except Exception as oE:
+                    logging.error(f"chat. Agent streaming faild. {oE}")
+                    if hasattr(oE, "exceptions"):
+                        for i, sub_exc in enumerate(oE.exceptions):
+                            logging.error(f"Sub-Exception #{i}: {type(sub_exc).__name__} - {sub_exc}")
+                    sError = "\n[The WASDI AI agent encountered an error while streaming]" # TODO: translation
+                    sFullResponse += sError
+                    yield sError
+                finally:
+                    if sFullResponse:
+                        # now it is the moment to store the chat into the db
+                        aoPrompts = oChat.prompts + [sPrompt]
+                        aoAnswers = oChat.answers + [sFullResponse]
+
+                        oChat.prompts = aoPrompts
+                        oChat.answers = aoAnswers
+
+                        if oChatRepository.updateEntity(oChat) < 0:
+                            logging.warning("chat. Chat was not updated")
+                        
+            """
+            oResult = await oAgent.ainvoke(
+                {
+                    "messages": aoMessages
+                }
+            )
+            
+            class MockMessage:
+                content = f"This is a hardcoded mock response from the WASDI AI agent to the prompt: {sPrompt} "
+            oResult = {"messages": [MockMessage()]}
+            """
+            
+
+            return StreamingResponse(
+                event_generator(), 
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no"  # This is the magic bullet for Nginx/Proxies
+                })
+        except Exception as oE:
+            # Fallback context reset in case generator setup fails before yielding
+            X_SESSION_TOKEN_CTX.reset(oTokenReset)
+            logging.error(f"chat. Setup failed: {oE}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")
     except Exception as oE:
-        logging.error(f"chat. Agent invocation failed: {oE}")
-
-        # Check if this is a TaskGroup exception (BaseExceptionGroup in Python 3.11+)
-        if hasattr(oE, "exceptions"):
-            logging.error("--- TaskGroup Sub-Exceptions Found ---")
-            for i, sub_exc in enumerate(oE.exceptions):
-                logging.error(f"Sub-Exception #{i}: {type(sub_exc).__name__} - {sub_exc}")
-                # Print the complete internal traceback for each hidden error
-                sub_tb = "".join(traceback.format_exception(type(sub_exc), sub_exc, sub_exc.__traceback__))
-                logging.error(f"Sub-Exception #{i} Traceback:\n{sub_tb}")
-            logging.error("---------------------------------------")
-        else:
-            # Fallback for standard errors
-            logging.error(traceback.format_exc())        
-        oResult = None
-    finally:
-        X_SESSION_TOKEN_CTX.reset(oTokenReset)
-
-    if not oResult:
-        return "The WASDI AI agent encountered an error while processing your request"  # TODO: translation?
-    
-    if not isinstance(oResult, dict) or "messages" not in oResult:
-        logging.error("chat. Unexpected agent output format")
-        return "The WASDI AI agent encountered an error while processing your request" # TODO
-    
-    oLastMessage = oResult["messages"][-1]
-    
-    sResponse = getattr(oLastMessage, "content", None)
-
-    if not sResponse:
-        logging.warning("chat. Agent returned a message without no text content")
-        sResponse = "I processed your request, but I have no text response to provide" # TODO
-
-
-    # now it is the moment to store the chat into the db
-    aoPrompts = oChat.prompts + [sPrompt]
-    aoAnswers = oChat.answers + [sResponse]
-
-    oChat.prompts = aoPrompts
-    oChat.answers = aoAnswers
-
-    if oChatRepository.updateEntity(oChat) < 0:
-        logging.warning("chat. Chat was not updated")
-
-    logging.info(f"chat. Returining answer to the user")
-
-    return sResponse
+        logging.error(f"chat. Exception: {oE}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @oApp.get("/getChat")

@@ -72,8 +72,8 @@ s_oLLM = ChatOpenAI(
 s_oRetriever = s_oVectorStore.as_retriever()
 s_oCompressionRetriever = s_oRetriever
 
-s_sPromptTemplate = """Use the context to answer the user's question. You are a WASDI and Earth Observation (EO) expert, you help users to use WASDI interface and to code WASDI applications using wasdi libraries. searchWasdiDocs helps to search the documentation.
-Comments describes the purpose, the input parameters and the output. If you do not know the answer based on the context provided, tell the user that you do  not know the answer to their question based on the context provided 
+s_sPromptTemplate = """Use the context to answer the user's question. You are a WASDI and Earth Observation (EO) expert, you help users to use WASDI including interface, coding new apps, using existing apps. Use searchWasdiDocs to search the documentation.
+If you do not know the answer based on the context provided, tell the user that you do  not know the answer to their question based on the context provided 
 and that you are sorry.
 context: {context}
 question: {query}
@@ -110,7 +110,7 @@ oApp.add_middleware(
 
 @s_oMcpServer.tool()
 def hello(sName: str) -> str:
-    """Says hello to someone, whose name is give as an input parameter."""
+    """Says hello to someone, whose name is give as an input parameter. Use this to check if the MCP Server is working. """
     return f"Hello {sName}!"
 
 
@@ -207,9 +207,9 @@ async def getNodeUrlForProcessWorkspace(
     return s_sWasdiApiUrl
 
 @s_oMcpServer.tool()
-async def wasdiHello() -> str:
-    """WASDI hello endpoint can be used to check if the service is up and running. 
-    The call does not need any authentication. If it works, the API returns a json with 'stringValue': 'Hello Wasdi!!'. 
+async def wasdi_hello() -> str:
+    """WASDI hello can be used to check if the WASDI service is up and running. 
+    If it works, the API returns a json with 'stringValue': 'Hello Wasdi!!'. 
     If it does not work can return not found or not available or any other http error."""
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(f"{s_sWasdiApiUrl}/rest/wasdi/hello")
@@ -217,7 +217,7 @@ async def wasdiHello() -> str:
         return oResponse.text
     
 @s_oMcpServer.tool()
-async def searchWasdiDocs(sUserPrompt: str) -> str:
+async def search_wasdi_docs(sUserPrompt: str) -> str:
     """
     Searches the internal WASDI documentation and knowledge base.
     Use this tool whenever the user asks for explanations about the system,
@@ -233,9 +233,9 @@ async def searchWasdiDocs(sUserPrompt: str) -> str:
 @s_oMcpServer.tool()
 async def get_workspaces_by_user(oContext: Context = None) -> str:
     """
-    Returns the list of workspaces for the currently authenticated user.
-    The workspaces being returned are those that the user has access to, either as owner or as collaborator.
-    Can be used if the agent needs to list the workspaces of a user, or search if a workspace with a specific name exists.
+    Returns the list of workspaces for the current user.
+    The workspaces being returned can be owned by the user, or shared with the user, or public workspaces.
+    The Agent can use this tool to list the workspaces of a user, to check if the user can access a specific workspace, or search if a workspace with a specific name exists.
     Return a list of WorkspaceListInfoViewModel in JSON format: properties are 
     workspaceId: unique id of the workspace
     workspaceName: name of the workspace
@@ -266,27 +266,26 @@ async def get_workspaces_by_user(oContext: Context = None) -> str:
 @s_oMcpServer.tool()
 async def get_workspace_details(sWorkspaceId: str, oContext: Context = None) -> str:
     """
-    Returns the workspace editor view model for a specific workspace.
-    This mirrors WorkspaceResource.getWorkspaceEditorViewModel and is useful when the agent
-    needs the full information about a workspace, including node, permissions, dates, storage size, or sharing details.
+    Return detailed information about a workspace
+    The agent can use it to get the full information about a workspace, including node, permissions, dates, storage size, or sharing details.
     
     The call returns a JSON with the following properties:
 
-    workspaceId: unique id of the workspace
-    name: name of the workspace
-    userId: user id of the owner of the workspace
+    workspaceId: unique id
+    name: name 
+    userId: user id of the owner
     apiUrl: base url of the node where the workspace is located, used for some specific calls that need to target the node directly
-    creationDate: date of creation of the workspace
-    lastEditDate: date of the last modification of the workspace
-    sharedUsers: list of user ids of the users that the workspace is shared with
-    nodeCode: code of the node where the workspace is located
+    creationDate: date of creation 
+    lastEditDate: date of the last modification
+    sharedUsers: list of user ids with whom the workspace is shared
+    nodeCode: code of the WASDI computing node where the workspace is located
     activeNode: boolean that indicates if the node where the workspace is located is active or not
-    processesCount: number of processes in the workspace
+    processesCount: number of processes executed in the workspace
     cloudProvider: name of the cloud provider where the node that host the workspace is located
     slaLink: link to the SLA of the cloud that host the workspace
     storageSize: storage size of the workspace in bytes
     isPublic: boolean that indicates if the workspace is public or private
-    readOnly: boolean that indicates if the workspace is read only
+    readOnly: boolean that indicates if the workspace is read only for this user
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -310,9 +309,9 @@ async def get_workspace_details(sWorkspaceId: str, oContext: Context = None) -> 
 @s_oMcpServer.tool()
 async def get_workspace_name_by_id(sWorkspaceId: str, oContext: Context = None) -> str:
     """
-    Returns the workspace name for a given workspace id.
+    Resolve the workspace name for a given workspace id.
     Can be used when the agent needs to get the name of a workspace starting from its id.
-    sWorkspaceId: is the unique workspace id that we are searching to get the name.
+    sWorkspaceId: is the workspace id for which to resolve the name.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -334,13 +333,13 @@ async def get_workspace_name_by_id(sWorkspaceId: str, oContext: Context = None) 
 
 
 @s_oMcpServer.tool()
-async def create_new_workspace(sName: str = None, sNodeCode: str = None, oContext: Context = None) -> str:
+async def create_new_workspace(sName: str = None, oContext: Context = None) -> str:
     """
-    Creates a new workspace for the authenticated user. Can be used by the agent to create a new workspace for the user. The workspaceId is the real key. The names are unique: if the name already exists, WASDI will add (1) or (2) etc. 
+    Creates a new workspace for the user. Can be used by the agent to create a new workspace. 
+    Workspace names are unique per user: if the name already exists, WASDI will add (1) or (2) etc. 
     
     Inputs:
     sName: is the name of the workspace to be created.
-    sNodeCode: is the code of the node where the workspace will be created. If not provided, the workspace will be created in a node selected by WASDI according the access rights.
 
     the call returns null in case of errors or a JSON object with:
 
@@ -358,7 +357,7 @@ async def create_new_workspace(sName: str = None, sNodeCode: str = None, oContex
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.get(
             f"{s_sWasdiApiUrl}/rest/ws/create",
-            params={"name": sName, "node": sNodeCode},
+            params={"name": sName, "node": ""},
             headers={"x-session-token": sSessionToken}
         )
         oResponse.raise_for_status()
@@ -369,22 +368,27 @@ async def create_new_workspace(sName: str = None, sNodeCode: str = None, oContex
 @s_oMcpServer.tool()
 async def share_workspace_with_user(sWorkspaceId: str, sDestinationUserId: str, sRights: str = None, oContext: Context = None) -> str:
     """
-    Shares a workspace with another user. If the target user does not exists or is already included, it will fail.
-    The agent can use this API to share a workspace with another user, for example when the user asks to share a workspace with a colleague or with a group of users. 
-    The agent can also use this API to change the access rights of a user that already has access to the workspace, for example to give write access to a user that currently has only read access: this must be done before removing the existing share and then creating a new one
+    Shares a workspace with another user. 
+    If the target user does not exists or is already included, it will fail.
+    The agent can use this API to share a workspace with another user. 
+    The agent can also use this API to change the access rights of a user that already has access to the workspace, 
+    for example to give write access to a user that currently has only read access: 
+    this must be done before removing the existing share and then creating a new one
 
     Inputs
     sWorkspaceId: is the unique id of the workspace to be shared.
     sDestinationUserId: is the user id of the user with whom the workspace will be shared.
     sRights: is the level of access that the destination user will have on the workspace. It can be "read" for read-only access or "write" for read and write access. If not provided, the default access level is "read".
 
-    the call returns null in case of errors or a JSON object with:
+    Output
+    a JSON object with:
 
     IntValue: The http code of the response, 200 if the workspace is shared successfully and different codes in case of errors
     StringValue: a message describing the error or the success of the operation
     DoubleValue: ignored in this API
     BoolValue: True if the workspace is shared successfully, False in case of errors
 
+    the call returns null in case of errors
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -412,17 +416,18 @@ async def share_workspace_with_user(sWorkspaceId: str, sDestinationUserId: str, 
 async def get_users_with_access_to_workspace(sWorkspaceId: str, oContext: Context = None) -> str:
     """
     Returns the list of users that have access to a workspace.
-    The agent can use it to tell to the user or check the users that can access to workspace
 
     Input
     sWorkspaceId: is the unique id of the workspace for which we want to get the list of users that have access to it.
 
     Output
-    the call returns an empty array in case of errors or an array JSON object with:
+    an array JSON object with:
         workspaceId: the unique id of the workspace
         userId: the user id of the user that has access to the workspace
         ownerId: the user id of the owner of the workspace
         permissions: the level of access that the user has on the workspace, it can be "read" for read-only access or "write" for read and write access
+
+    the call returns an empty array in case of errors
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -446,24 +451,25 @@ async def get_users_with_access_to_workspace(sWorkspaceId: str, oContext: Contex
 @s_oMcpServer.tool()
 async def add_product_to_workspace(sProductName: str, sWorkspaceId: str, oContext: Context = None) -> str:
     """
-    Adds a product to a workspace. The API works on database, not on the real file. The file that is going to be added must be present in the workspace folder but this API does not check if it really is there or not.
-    In WASDI all files are represented as products, even if they are not EO products, so this API can be used to add any file to the workspace, as long as the file is present in the local node workspace folder and the name of the file is provided as an input parameter.
-    The path is always relative to the root of the workspace that host the product.
-    A typical use case of this API is when the agent needs to add a file that is generated during the execution of a process to the workspace, in order to make it available for the user in the WASDI interface and for other processes that can be executed after.
-    Usually the agent generates a file in the local node workspace folder, then it uses this API to add the file to the workspace, providing the name of the file and the id of the workspace as input parameters.
-    This is a node-based API.
+    Adds a product to a workspace. The API works on database, not on the real file. 
+    The file that is going to be added must be present in the workspace folder but this API does not check if it really is there or not.
+    This API can be used to add any file to the workspace, as long as the file is present in the local node workspace folder and the name of the file is provided as an input parameter.
+    The path is always relative to the root of the workspace.
+    The agent can use it to add to the workspace a file that is generated during the execution of a process, in order to make it available for the user in the WASDI interface.
 
     Input
     sProductName: is the name of the product to be added to the workspace, it must be present in the local node workspace folder
     sWorkspaceId: is the unique id of the workspace to which the product will be added
 
     Output
-    the call returns null in case of errors or a JSON object with:
+    A JSON object with:
 
     IntValue: ignored in this API
     StringValue: ignored in this API
     DoubleValue: ignored in this API
     BoolValue: True if the product is added successfully to the workspace, False otherwise.
+
+    The call returns null in case of errors
 
     """
     sSessionToken = getSessionToken(oContext)
@@ -494,26 +500,29 @@ async def add_product_to_workspace(sProductName: str, sWorkspaceId: str, oContex
 @s_oMcpServer.tool()
 async def get_product_details_by_product_name(sProductName: str, sWorkspaceId: str, oContext: Context = None) -> str:
     """
-    Returns a product view model by file name. The Product must exists in the workspace. The path of the product is always relative to the root of the workspace.
-    This is a node-based API.
+    Returns details product information by file name. 
+    The Product must exists in the workspace. 
+    The path of the product is always relative to the root of the workspace.
 
     Input
-    sProductName: is the name of the product to be searched in the workspace, it must be present in the workspace
+    sProductName: is the name of the product to be get details about, it must be present in the workspace
     sWorkspaceId: is the unique id of the workspace where the product is located
 
     Output
-    the call returns null in case of errors or a JSON object with:
+    A JSON object with:
 
-    bbox: optional property with the bounding box of the product, in case the product is an EO product with georeferenced data
+    bbox: optional property with the bounding box of the product
     name: is the file name without extension
-    description: optional property with the description of the product, if it is provided by the user when the product is created or edited
     fileName: is the file name with extension
-    productFriendlyName: is a name that the user can assign to this product
-    metadataFileCreated: metadata are not read by defualt. If the user wants to access it, a file is created in the dedicated wasdi folder. This property is a boolean true if the metadata has  been generated, false otherwise.
+    description: optional description of the product
+    productFriendlyName: optional friendly name that the user can assign
+    metadataFileCreated: A boolean true if the metadata has been generated, false otherwise.
     metadataFileReference: if the metadataFileCreated is true, this property contains the path to the metadata file that has been generated. The path is relative to the metadata wasdi folder on the server
     metadata: real metadata if the metadataFileCreated is true. This property is not provided by default because it can be very heavy, especially for products with a lot of metadata, so it is better to read the metadata only when it is needed, using the metadataFileReference property to access the metadata file.
     bandsGroups: optional property with the bands groups of the product, if it is an EO product with multiple bands
     style: optional property with the name of the style of the product. Styles are Geoserver styles the user can upload in wasdi. If the product has a style assigned, it means that the user has uploaded a style in wasdi and assigned it to this product, so the style property contains the name of the style that is assigned to the product. The agent can use this information to suggest to the user to use this style when visualizing the product in wasdi, or to use this style as a reference when generating a new style for this product.
+
+    The call returns null in case of errors.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -544,27 +553,29 @@ async def get_product_details_by_product_name(sProductName: str, sWorkspaceId: s
 async def get_detailed_list_of_products_by_workspace(sWorkspaceId: str, oContext: Context = None) -> str:
     """
     Returns the detailed list of products in a workspace. 
-    This mirrors ProductResource.getListByWorkspace and is useful when the agent needs to get the full list of products in a workspace with all the details, including metadata, styles, bands information, and so on.
-    There are 2 alternatives get_light_list_of_products_by_workspace and get_names_of_products_by_workspace.
-    This API can take a lot of time for workspaces with a lot of products, so it is better to use it only when the agent really needs all the details of all the products in the workspace. If the agent needs only the names of the products, it can use get_names_of_products_by_workspace, if it needs some details but not all, it can use get_light_list_of_products_by_workspace.
-    It will always be possible later to get the details of a specific product using the get_product_details_by_product_name API, so the agent can start with a light call to get the list of products with few details and then get the details of the products that are interesting for it using get_product_details_by_product_name.
+    The agent can use this API to get the full list of products in a workspace with all the details, including metadata, styles, bands information.
+    This API can take a lot of time for workspaces with many products, use it only when the agent really needs all the details of all the products in the workspace. 
+    There are 2 alternatives get_light_list_of_products_by_workspace and get_names_of_products_by_workspace that can be used to get a list of products with less details.    
+    Using the alternative APIs, the agent can get the details of a specific product using the get_product_details_by_product_name API.
 
     Input
-    sWorkspaceId: is the unique id of the workspace for which we want to get the list of products.
+    sWorkspaceId: unique id of the workspace for which we want to get the list of products.
 
     Output
-    the call returns null in case of errors or an array JSON object with the following properties for each product:
+    An array JSON object with the following properties for each product:
 
     bbox: optional property with the bounding box of the product, in case the product is an EO product with georeferenced data
     name: is the file name without extension
     description: optional property with the description of the product, if it is provided by the user when the product is created or edited
     fileName: is the file name with extension
     productFriendlyName: is a name that the user can assign to this product
-    metadataFileCreated: metadata are not read by defualt. If the user wants to access it, a file is created in the dedicated wasdi folder. This property is a boolean true if the metadata has  been generated, false otherwise.
+    metadataFileCreated: A boolean true if the metadata has been generated, false otherwise.
     metadataFileReference: if the metadataFileCreated is true, this property contains the path to the metadata file that has been generated. The path is relative to the metadata wasdi folder on the server
     metadata: real metadata if the metadataFileCreated is true. This property is not provided by default because it can be very heavy, especially for products with a lot of metadata, so it is better to read the metadata only when it is needed, using the metadataFileReference property to access the metadata file.
     bandsGroups: optional property with the bands groups of the product, if it is an EO product with multiple bands
     style: optional property with the name of the style of the product. Styles are Geoserver styles the user can upload in wasdi. If the product has a style assigned, it means that the user has uploaded a style in wasdi and assigned it to this product, so the style property contains the name of the style that is assigned to the product. The agent can use this information to suggest to the user to use this style when visualizing the product in wasdi, or to use this style as a reference when generating a new style for this product.
+
+    the call returns null in case of errors or a
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -589,19 +600,21 @@ async def get_detailed_list_of_products_by_workspace(sWorkspaceId: str, oContext
 async def get_light_list_of_products_by_workspace(sWorkspaceId: str, oContext: Context = None) -> str:
     """
     Returns the light list of products in a workspace.
-    This mirrors ProductResource.getLightListByWorkspace and is useful when the agent needs to get a list of products in a workspace with only basic details, without the full one.
-    The light list is faster to be returned by the server and to be processed by the agent, so it is better to use it when the agent needs only some details of the products in the workspace, but not all. If the agent needs all the details of the all the products, it can use get_detailed_list_of_products_by_workspace, if it needs only the names of the products it can use get_names_of_products_by_workspace.
-    Once a product name is available, it will always be possible to get the full details of the product using the get_product_details_by_product_name API, so the agent can start with a light call to get the list of products with few details and then get the details of the products that are interesting for it using get_product_details_by_product_name.
+    The agent can call this to get a list of products in a workspace with only basic details.
+    The light list is faster to be returned by the server and to be processed by the agent.
+    Once a product name is available, it will always be possible to get the full details of the product using the get_product_details_by_product_name API
 
     Input
     sWorkspaceId: is the unique id of the workspace for which we want to get the light list of products.
 
     Output
-    the call returns an empty array in case of errors or an array JSON object with the following properties for each product:
+    An array JSON object with the following properties for each product:
 
     name: is the file name without extension
     productFriendlyName: is a name that the user can assign to this product
-    bbox: optional property with the bounding box of the product, in case the product is an EO product with georeferenced data.
+    bbox: optional property with the bounding box of the product.
+
+    The call returns an empty array in case of errors
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -626,14 +639,17 @@ async def get_light_list_of_products_by_workspace(sWorkspaceId: str, oContext: C
 async def get_names_of_products_by_workspace(sWorkspaceId: str, oContext: Context = None) -> str:
     """
     Returns the file names of the products in a workspace. 
-    This mirrors ProductResource.getNamesByWorkspace. It is useful when the agent needs only the names of the products in the workspace, without any other details, for example to check if a product with a specific name exists in the workspace.
-    It is the fastest API to get the list of products in a workspace, so it is better to use it when the agent needs only the names of the products. If the agent needs some details but not all, it can use get_light_list_of_products_by_workspace, if it needs all the details of the products it can use get_detailed_list_of_products_by_workspace.
+    The agent can call this tool to get the names of the products in the workspace, for example to check if a product exists in the workspace.
+    It is the fastest API to get the list of products in a workspace.
+    Details of the products can be obtained using the get_product_details_by_product_name API.
 
     Input
     sWorkspaceId: is the unique id of the workspace for which we want to get the names of the products.
     
     Output
-    the call returns an empty array in case of errors or an array of strings with the names of the products in the workspace. The names are the file names with extension, for example "image.tif", "data.csv", and so on.
+    An array of strings with the file names with extensions (i.e. "myfile.tif", "data.csv", and so on) of the products in the workspace.
+
+    The call returns an empty array in case of errors.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -667,17 +683,19 @@ async def get_processes_by_workspace(
     oContext: Context = None,
 ) -> str:
     """
-    Returns a filtered list of process workspaces in a workspace. A process workspace is a process that has been executed in a workspace. Process Workspaces type tells the operation that is stored in operationType.
-    Operations are started using run_processor, run_snap_workflow, mosaic, multisubset, regrid, import_product_in_wasdi, ingest_existing_file_in_workspace, share_file_to_workspace, publish_product_band_in_wms, upload_new_processor, redeploy_processor, environmentupdate, killprocesstree. The operationType is the name of the operation that has been executed in the workspace.
-    This is a node-based API. ProcessWorkspaces are stored per node, not all in the main node. This tool automatically resolves the node URL from the workspace details.
-    The agent can use this API to get the list of processes that have been executed in a workspace, with the possibility to filter by status, operation type, name pattern and date range. This can be useful for example to check if a process with a specific name or a specific operation type has been executed in the workspace, or to get the list of all the processes that are currently running in the workspace.
-    This API can be used also to try to understand what went wrong: we can get the list of processes that are in error status and then call get_process_payload and or get_processor_logs to get more details about the error and try to understand what went wrong.
-    The API is paginated, so the agent can use the start index and end index parameters to get only a subset of the results, for example to get the first 10 processes or to get the next 10 processes after the first 10.
+    Returns a filtered list of process workspaces in a workspace. A process workspace is a process that has been executed in a workspace. 
+    The type of the process executed is stored in operationType.
+    The agent can use this API to get the list of processes that have been executed in a workspace, with the possibility to filter by status, operation type, name and date range. 
+    The agent can call this tool to search processes executed in a workspace.
+    The agent can filter the list by name, type, status. 
+    The agent can use this tool to get the list of all the processes that are currently running. 
+    The agent can use this tool to understand what went wrong: get the list of processes that are in error status and then call get_process_payload and or get_processor_logs to get more details about the error.
+    The API is paginated, so the agent can use the start index and end index parameters to get only a subset of the results.
 
     Inputs
     sWorkspaceId: is the unique id of the workspace for which we want to get the process workspaces.
-    sStatus: is an optional filter for the status of the process workspaces.
-    sOperationType: is an optional filter for the operation type of the process workspaces.
+    sStatus: is an optional filter for the status of the process workspaces (CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED).
+    sOperationType: is an optional filter for the operation type of the process workspaces (INGEST, DOWNLOAD, SHARE, PUBLISHBAND, GRAPH, DEPLOYPROCESSOR, RUNPROCESSOR, MOSAIC, MULTISUBSET, REGRID, DELETEPROCESSOR, INFO, REDEPLOYPROCESSOR, LIBRARYUPDATE, ENVIRONMENTUPDATE, KILLPROCESSTREE).
     sNamePattern: is an optional filter for the name pattern of the process workspaces.
     sDateFrom: is an optional filter for the start date of the process workspaces.
     sDateTo: is an optional filter for the end date of the process workspaces.
@@ -687,23 +705,21 @@ async def get_processes_by_workspace(
     Output
     A list process workspace; each element has the following properties:
 
-    String productName: name of the product target of this process. The name is historical, but can represent in reality a name of a product, or of an application or of a SNAP workflow
+    String productName: name of the product target of this process. Can represent a name of a product, or of an application or of a SNAP workflow depending by the operation Type
     String operationType: type of the operation performed by this process. Types are INGEST, DOWNLOAD, SHARE, PUBLISHBAND, GRAPH, DEPLOYPROCESSOR, RUNPROCESSOR, MOSAIC, MULTISUBSET, REGRID, DELETEPROCESSOR, INFO, REDEPLOYPROCESSOR, LIBRARYUPDATE, ENVIRONMENTUPDATE, KILLPROCESSTREE,
-    String operationSubType: subtype of the operation performed by this process. Each operation can have a subtype in theory. In reality now is used for DOWNALOD operations: subtype is the data provider of the data that is downloaded, for example COPERNICUS, CREODIAS2, LSA etc
+    String operationSubType: subtype of the operation performed by this process. Each operation can have a subtype. Is used for DOWNALOD operations: subtype is the data provider of the data that is downloaded, for example COPERNICUS, CREODIAS2, LSA etc
 	String operationDate: date of the operation creation
     String operationStartDate: start date of the operation
     String operationEndDate: end date of the operation
     String lastChangeDate: date of the last status change
 	String userId: id of the user who started the operation
     String fileSize: size of the file ie for a download operation
-    String status: status of the process. Status can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. The process is created CREATED. Then is the scheduler that triggers it in start. Applications moves in WAITING when the user calls waitProcess from the lib. When the process is done, it become READY and the scheduler will move in RUNNING again when there is a slot
+    String status: status of the process. Status can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. 
     int progressPerc: progress percentage of the process
     String processObjId: id of the process object
     int pid: id of the process in the operating system of the node where it is executed
     String payload: json output created by the process when id done. The content of the payload is defined by the process itself, but it can contain useful information for the user
     String workspaceId: id of the workspace where the process is executed
-
-    This mirrors ProcessWorkspaceResource.getProcessByWorkspace.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -743,8 +759,6 @@ async def get_processes_by_workspace(
 async def get_last_processes_by_workspace(sWorkspaceId: str, oContext: Context = None) -> str:
     """
     Returns the last five process workspaces for a workspace.
-    This is a node-based API. This tool automatically resolves the node URL from the workspace details.
-    This mirrors ProcessWorkspaceResource.getLastProcessByWorkspace.
 
     Input
     sWorkspaceId: is the unique id of the workspace for which we want to get the last five process workspaces.
@@ -760,7 +774,7 @@ async def get_last_processes_by_workspace(sWorkspaceId: str, oContext: Context =
     String lastChangeDate: date of the last status change
 	String userId: id of the user who started the operation
     String fileSize: size of the file ie for a download operation
-    String status: status of the process. Status can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. The process is created CREATED. Then is the scheduler that triggers it in start. Applications moves in WAITING when the user calls waitProcess from the lib. When the process is done, it become READY and the scheduler will move in RUNNING again when there is a slot
+    String status: status of the process. Status can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED.
     int progressPerc: progress percentage of the process
     String processObjId: id of the process object
     int pid: id of the process in the operating system of the node where it is executed
@@ -793,8 +807,6 @@ async def get_summary_of_running_processes_for_workspace(sWorkspaceId: str = Non
     """
     Returns process summary counts for a workspace and user. The agent can use this API to get a quick overview of the processes that are 
     running in a workspace, for example to check how many processes are currently running and how many are waiting, and so on. 
-    This mirrors ProcessWorkspaceResource.getSummary.
-    This is a node-based API.
 
     Input
     sWorkspaceId: is the unique id of the workspace for which we want to get the summary of running processes.
@@ -832,20 +844,14 @@ async def get_summary_of_running_processes_for_workspace(sWorkspaceId: str = Non
 @s_oMcpServer.tool()
 async def kill_process_in_workspace(
     sProcessObjId: str,
-    bKillTheEntireTree: bool = None,
-    sWorkspaceId: str = None,
     oContext: Context = None,
 ) -> str:
     """
-    Kills a running process workspace. Each process, when is the first, can trigger new sub-processes. 
-    This API can be used to kill a process and all its sub-processes, or only the process itself. The agent can use this API to stop a process that is running in a workspace, 
-    for example if the user wants to cancel the execution of a process or if the process is taking too long to complete.
-    This mirrors ProcessWorkspaceResource.deleteProcess.
-    This is a node-based API.
+    Kills a running process workspace.
+    The agent can use this API to stop a process that is running in a workspace, for example if the user wants to cancel the execution of a process or if the process is taking too long to complete.
 
     Inputs
     sProcessObjId: is the unique id of the process workspace
-    bKillTheEntireTree: is an optional parameter that indicates if the entire tree of processes should be killed. If true, the process and all its sub-processes will be killed.
     sWorkspaceId: is the unique id of the workspace in which the process is running
 
     Output:
@@ -860,8 +866,9 @@ async def kill_process_in_workspace(
         raise ValueError("Missing process id")
 
     aoParams = {"procws": sProcessObjId}
-    if bKillTheEntireTree is not None:
-        aoParams["treeKill"] = "true" if bKillTheEntireTree else "false"
+    aoParams["treeKill"] = "true"
+    
+    sWorkspaceId = getWorkspaceIdForProcessWorkspace(sProcessObjId, sSessionToken)
 
     sNodeUrl = await getNodeUrlForProcessWorkspace(sProcessObjId, sSessionToken, sWorkspaceId)
 
@@ -877,15 +884,13 @@ async def kill_process_in_workspace(
 
 
 @s_oMcpServer.tool()
-async def get_process_by_id(sProcessObjId: str, sWorkspaceId: str = None, oContext: Context = None) -> str:
+async def get_process_by_id(sProcessObjId: str,  oContext: Context = None) -> str:
     """
     Returns a process workspace view model by id.
-    This mirrors ProcessWorkspaceResource.getProcessById. This is a node-based API.
-    Can be used to get the details of a process workspace.
+    The agent can use this to get the details of a process workspace so of any operation executed in WASDI.
 
     Inputs:
     sProcessObjId: is the unique id of the process workspace
-    sWorkspaceId: is the unique id of the workspace in which the process is running
 
     Output:
     return an empty Process Workspace View Model in case of errors or a JSON object with the following properties:
@@ -913,7 +918,8 @@ async def get_process_by_id(sProcessObjId: str, sWorkspaceId: str = None, oConte
 
     if not sProcessObjId:
         raise ValueError("Missing process id")
-
+    
+    sWorkspaceId = getWorkspaceIdForProcessWorkspace(sProcessObjId, sSessionToken)
     sNodeUrl = await getNodeUrlForProcessWorkspace(sProcessObjId, sSessionToken, sWorkspaceId)
 
     async with httpx.AsyncClient() as oClient:
@@ -930,16 +936,16 @@ async def get_process_by_id(sProcessObjId: str, sWorkspaceId: str = None, oConte
 @s_oMcpServer.tool()
 async def get_status_processes_by_id(asProcessesWorkspaceId: list[str], oContext: Context = None) -> str:
     """
-    Returns the status of multiple process workspaces in a single call. Is faster than calling get_process_status_by_id for each process workspace id. 
+    Returns the status of multiple process workspaces in a single call. 
+    Is faster than calling get_process_status_by_id for each process workspace id. 
     The agent can use this API to get the status of multiple processes in a single call.
-
-    This mirrors ProcessWorkspaceResource.getStatusProcessesById. This is a node-based API.
 
     Inputs:
     asProcessesWorkspaceId: is a list of unique ids (strings) of the process workspaces
 
     Output:
-    the call returns an empty array in case of errors or an array of Strings: one for each asProcessesWorkspaceId in input, with a value describing the status of the process workspace. Status can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. The process is created CREATED. Then is the scheduler that triggers it in start. Applications moves in WAITING when the user calls waitProcess from the lib. When the process is done, it become READY and the scheduler will move in RUNNING again when there is a slot.
+    An array of Strings: one for each asProcessesWorkspaceId in input, with a value describing the status of the process workspace. Status can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. 
+    the call returns an empty array in case of errors or 
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -963,19 +969,18 @@ async def get_status_processes_by_id(asProcessesWorkspaceId: list[str], oContext
 
 
 @s_oMcpServer.tool()
-async def get_process_status_by_id(sProcessObjId: str, sWorkspaceId: str = None, oContext: Context = None) -> str:
+async def get_process_status_by_id(sProcessObjId: str, oContext: Context = None) -> str:
     """
-    Returns the status of a single process workspace. Is faster than calling get_process_by_id because it returns only the status of the process workspace, without all the other details. 
+    Returns the status of a single process workspace. 
     The agent can use this API to get the status of a process workspace, for example to check if a process is still running or if it has completed.
-    This mirrors ProcessWorkspaceResource.getProcessStatusById. This is a node-based API.
+    Is faster than calling get_process_by_id because it returns only the status of the process workspace, without all the other details. 
 
     Inputs:
     sProcessObjId: is the unique id of the process workspace
-    sWorkspaceId: is the unique id of the workspace in which the process is running
 
     Output:
     a string with the status of the process workspace. Status can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. The process is created CREATED. Then is the scheduler that triggers it in start. Applications moves in WAITING when the user calls waitProcess from the lib. When the process is done, it become READY and the scheduler will move in RUNNING again when there is a slot.
-    In case of error in the API it return in any case the string ERROR. The agent can use this information to check if the process is still running or if it has completed, and take appropriate action based on the status of the process workspace.
+    In case of error in the API it return in any case the string ERROR. 
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -984,6 +989,8 @@ async def get_process_status_by_id(sProcessObjId: str, sWorkspaceId: str = None,
 
     if not sProcessObjId:
         raise ValueError("Missing process id")
+    
+    sWorkspaceId = getWorkspaceIdForProcessWorkspace(sProcessObjId, sSessionToken)
 
     sNodeUrl = await getNodeUrlForProcessWorkspace(sProcessObjId, sSessionToken, sWorkspaceId)
 
@@ -998,111 +1005,110 @@ async def get_process_status_by_id(sProcessObjId: str, sWorkspaceId: str = None,
         return oResponse.text
 
 
-@s_oMcpServer.tool()
-async def update_process_by_id(
-    sProcessObjId: str,
-    sNewStatus: str,
-    iPerc: int,
-    sSendToRabbit: str = None,
-    sWorkspaceId: str = None,
-    oContext: Context = None,
-) -> str:
-    """
-    Updates a process workspace status and progress. This is a node-based API. 
-    It is more fast than updating the full process workspace.
-    This mirrors ProcessWorkspaceResource.updateProcessById.
+# @s_oMcpServer.tool()
+# async def update_process_by_id(
+#     sProcessObjId: str,
+#     sNewStatus: str,
+#     iPerc: int,
+#     sSendToRabbit: str = None,
+#     sWorkspaceId: str = None,
+#     oContext: Context = None,
+# ) -> str:
+#     """
+#     Updates a process workspace status and progress.
 
-    Inputs:
-    sProcessObjId: is the unique id of the process workspace
-    sNewStatus: is the new status of the process workspace. Must be one of the following values: CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. 
-    iPerc: is the progress percentage of the process workspace. To not update perc, just pass a number <0 or > 100
-    sSendToRabbit: is an optional parameter to send the update to RabbitMQ that will notify the client
-    sWorkspaceId: is the unique id of the workspace in which the process is running
+#     Inputs:
+#     sProcessObjId: is the unique id of the process workspace
+#     sNewStatus: is the new status of the process workspace. Must be one of the following values: CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. 
+#     iPerc: is the progress percentage of the process workspace. To not update perc, just pass a number <0 or > 100
+#     sSendToRabbit: is an optional parameter to send the update to RabbitMQ that will notify the client
+#     sWorkspaceId: is the unique id of the workspace in which the process is running
 
-    Output:
-    The updated Process Workspace View Model in JSON format. The properties are the same as in get_process_by_id.
-    """
-    sSessionToken = getSessionToken(oContext)
+#     Output:
+#     The updated Process Workspace View Model in JSON format. The properties are the same as in get_process_by_id.
+#     """
+#     sSessionToken = getSessionToken(oContext)
 
-    if not sSessionToken:
-        raise ValueError("Missing x-session-token header")
+#     if not sSessionToken:
+#         raise ValueError("Missing x-session-token header")
 
-    if not sProcessObjId:
-        raise ValueError("Missing process id")
+#     if not sProcessObjId:
+#         raise ValueError("Missing process id")
 
-    if not sNewStatus:
-        raise ValueError("Missing process status")
+#     if not sNewStatus:
+#         raise ValueError("Missing process status")
 
-    aoParams = {
-        "procws": sProcessObjId,
-        "status": sNewStatus,
-        "perc": iPerc,
-    }
-    if sSendToRabbit is not None:
-        aoParams["sendrabbit"] = sSendToRabbit
+#     aoParams = {
+#         "procws": sProcessObjId,
+#         "status": sNewStatus,
+#         "perc": iPerc,
+#     }
+#     if sSendToRabbit is not None:
+#         aoParams["sendrabbit"] = sSendToRabbit
 
-    sNodeUrl = await getNodeUrlForProcessWorkspace(sProcessObjId, sSessionToken, sWorkspaceId)
+#     sNodeUrl = await getNodeUrlForProcessWorkspace(sProcessObjId, sSessionToken, sWorkspaceId)
 
-    async with httpx.AsyncClient() as oClient:
-        oResponse = await oClient.get(
-            f"{sNodeUrl}/rest/process/updatebyid",
-            params=aoParams,
-            headers={"x-session-token": sSessionToken}
-        )
-        oResponse.raise_for_status()
-        logging.debug("WASDI updateProcessById call completed with status %s", oResponse.status_code)
-        return oResponse.text
+#     async with httpx.AsyncClient() as oClient:
+#         oResponse = await oClient.get(
+#             f"{sNodeUrl}/rest/process/updatebyid",
+#             params=aoParams,
+#             headers={"x-session-token": sSessionToken}
+#         )
+#         oResponse.raise_for_status()
+#         logging.debug("WASDI updateProcessById call completed with status %s", oResponse.status_code)
+#         return oResponse.text
 
 
-@s_oMcpServer.tool()
-async def set_process_payload(sProcessObjId: str, sPayload: str, sWorkspaceId: str = None, oContext: Context = None) -> str:
-    """
-    Sets the payload of a process workspace. This is a node-based API. Usually, only processes itself update the payload, so the agent should not use this API.
-    This mirrors ProcessWorkspaceResource.setProcessPayloadPOST.
+# @s_oMcpServer.tool()
+# async def set_process_payload(sProcessObjId: str, sPayload: str, sWorkspaceId: str = None, oContext: Context = None) -> str:
+#     """
+#     Sets the payload of a process workspace. This is a node-based API. Usually, only processes itself update the payload, so the agent should not use this API.
+#     This mirrors ProcessWorkspaceResource.setProcessPayloadPOST.
 
-    Inputs:
-    sProcessObjId: is the unique id of the process workspace
-    sPayload: is the new payload of the process workspace. The payload usually is a JSON string but can be any string. The content of the payload is defined by the process itself, but it can contain useful information for the user.
-    sWorkspaceId: is the unique id of the workspace in which the process is running
+#     Inputs:
+#     sProcessObjId: is the unique id of the process workspace
+#     sPayload: is the new payload of the process workspace. The payload usually is a JSON string but can be any string. The content of the payload is defined by the process itself, but it can contain useful information for the user.
+#     sWorkspaceId: is the unique id of the workspace in which the process is running
 
-    Output:
-    The updated Process Workspace View Model in JSON format. The properties are the same as in get_process_by_id.
-    """
-    sSessionToken = getSessionToken(oContext)
+#     Output:
+#     The updated Process Workspace View Model in JSON format. The properties are the same as in get_process_by_id.
+#     """
+#     sSessionToken = getSessionToken(oContext)
 
-    if not sSessionToken:
-        raise ValueError("Missing x-session-token header")
+#     if not sSessionToken:
+#         raise ValueError("Missing x-session-token header")
 
-    if not sProcessObjId:
-        raise ValueError("Missing process id")
+#     if not sProcessObjId:
+#         raise ValueError("Missing process id")
 
-    sNodeUrl = await getNodeUrlForProcessWorkspace(sProcessObjId, sSessionToken, sWorkspaceId)
+#     sNodeUrl = await getNodeUrlForProcessWorkspace(sProcessObjId, sSessionToken, sWorkspaceId)
 
-    async with httpx.AsyncClient() as oClient:
-        oResponse = await oClient.post(
-            f"{sNodeUrl}/rest/process/setpayload",
-            params={"procws": sProcessObjId},
-            content=sPayload,
-            headers={"x-session-token": sSessionToken}
-        )
-        oResponse.raise_for_status()
-        logging.debug("WASDI setProcessPayloadPOST call completed with status %s", oResponse.status_code)
-        return oResponse.text
+#     async with httpx.AsyncClient() as oClient:
+#         oResponse = await oClient.post(
+#             f"{sNodeUrl}/rest/process/setpayload",
+#             params={"procws": sProcessObjId},
+#             content=sPayload,
+#             headers={"x-session-token": sSessionToken}
+#         )
+#         oResponse.raise_for_status()
+#         logging.debug("WASDI setProcessPayloadPOST call completed with status %s", oResponse.status_code)
+#         return oResponse.text
 
 
 @s_oMcpServer.tool()
-async def get_process_payload(sProcessObjId: str, sWorkspaceId: str = None, oContext: Context = None) -> str:
+async def get_process_payload(sProcessObjId: str, oContext: Context = None) -> str:
     """
-    Returns the payload of a process workspace. This is a node-based API. The payload is a text ouput of the process, usually a JSON. 
-    This mirrors ProcessWorkspaceResource.getPayload.
+    Returns the payload of a process workspace. The payload is a text ouput of the process, usually a JSON. 
+    The agent can use this API to get the text output of a process. 
+    The agent can use get_processor_help to get read the documentation of the process and understand what is the content of the payload.
 
     Inputs:
     sProcessObjId: is the unique id of the process workspace
-    sWorkspaceId: is the unique id of the workspace in which the process is running
 
     Outputs:
-    A string with the payload of the process workspace. The payload usually is a JSON string but can be any string. The content of the payload is defined by the process itself, but it can contain useful information for the user. 
-    Null in case of errors. The agent can use this information to get the output of a process workspace, for example to check the results of a process or to get the details of an error that occurred during the execution of a process.
+    A string with the payload of the process workspace. The payload usually is a JSON string but can be any string.
+    The content of the payload is defined by the process itself, but it can contain useful information for the user. 
+    Null in case of errors.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -1111,6 +1117,8 @@ async def get_process_payload(sProcessObjId: str, sWorkspaceId: str = None, oCon
 
     if not sProcessObjId:
         raise ValueError("Missing process id")
+    
+    sWorkspaceId = getWorkspaceIdForProcessWorkspace(sProcessObjId, sSessionToken)
 
     sNodeUrl = await getNodeUrlForProcessWorkspace(sProcessObjId, sSessionToken, sWorkspaceId)
 
@@ -1130,51 +1138,31 @@ async def upload_new_processor(
     sFilePath: str,
     sWorkspaceId: str,
     sName: str,
-    sVersion: str = None,
     sDescription: str = None,
     sType: str = None,
     sParamsSample: str = None,
     iPublic: int = None,
     iTimeout: int = None,
-    bForce: bool = False,
     oContext: Context = None,
 ) -> str:
     """
-    Create a new processor in WASDI. The processor is uploaded as a zip file. In python, the zip must contain myProcessor.py and can contain pip.txt and or packages.txt. Never upload the config.json or the params.json files.
+    Create a new processor in WASDI. The processor is uploaded as a zip file. 
+    In python, the zip must contain myProcessor.py and can contain pip.txt and or packages.txt. 
+    Never upload the config.json or the params.json files.
     pip.txt contains a line for each python package to install (wasdi will do it). Eventually packages.txt contains a line for each system package to install (wasdi will do it). 
-    myProcessor.py must have a structure like this:
-        import wasdi
-
-        def run():
-            wasdi.wasdiLog("Here I can start to code")
-
-
-        if __name__ == '__main__':
-            wasdi.init("./config.json")
-            run()    
-
-    For the rest, can be as any other python application, with also other py files and using all the lib needed. 
-    The inputs are a JSON string. From the code the user can use wasdi.getParameter("PARAM_NAME", "DEFAULT") to get the value of the parameter. 
-    Usually applications reads inputs, search and import images in the workspace, create new files that are added to the workspace and save a payload that is another json.
-    Each application can call whatever other application: asynch or waiting for it using wasdi.waitProcess("ID").
-    The code should only avoid to use absolute path and, instead, call always wasdi.getPath("FILE.EXT") to get the path: this will work both on local PC and on the cloud.
-
-    The agent can use this API to upload a new processor to WASDI, to add a new processing algorithm.
-    The user can ask to create a wasdi app: the agent needs to code the processor, create the zip and call this API to upload it.
-    This mirrors ProcessorsResource.uploadProcessor.
-    The file is read from the local filesystem and sent as multipart/form-data.
+    Please use the on line help to understand how to code a processor.
+    The agent can use this API to upload a new processor to WASDI.
+    The processor's zip file is read from the local filesystem and sent as multipart/form-data.
 
     Inputs:
     sFilePath: is the local path to the zip file containing the processor code and dependencies.
     sWorkspaceId: is the unique id of a workspace: in this case is used only to send notifications to the client. But a workspace is needed to upload. Just open one of the user or create one if none is available.
     sName: is the name of the processor. The name must be unique in WASDI. If a processor with the same name already exists, the upload will fail.
-    sVersion: obsolete. Set "1".
     sDescription: is an optional description of the processor. 
     sType: type of the processor. There are different processor types in WASDI. More will come in future. Usually you will use one of these, with the first higher priority PYTHON312_UBUNTU24, PIP_ONESHOT, PYTHON_PIP_2, PYTHON_PIP_2_UBUNTU_20. Other exists use the docs for other types
     sParamsSample: is an optional JSON string that contains a sample of the parameters that the processor expects.
     iPublic: is an optional integer that indicates if the processor should be public (1) or private (0). If not specified, the default is private (0).
     iTimeout: is an optional integer that indicates the timeout in seconds for the processor. If not specified, the default is 3600 seconds (1 hour). Use carefully -1 for no timeout. The agent can use this information to set a timeout for the processor, for example to prevent long-running processes from consuming too many resources.
-    bForce: please also use FALSE for this as an agent
 
     Output:
 
@@ -1205,13 +1193,13 @@ async def upload_new_processor(
     aoParams = {
         "workspace": sWorkspaceId,
         "name": sName,
-        "version": sVersion,
+        "version": "1",
         "description": sDescription,
         "type": sType,
         "paramsSample": sParamsSample,
         "public": iPublic,
         "timeout": iTimeout,
-        "force": bForce,
+        "force": False,
     }
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
@@ -1233,9 +1221,9 @@ async def upload_new_processor(
 @s_oMcpServer.tool()
 async def get_deployed_processors(oContext: Context = None) -> str:
     """
-    Returns all deployed processors visible (owned, public, shared with) to the authenticated user.
-    This mirrors ProcessorsResource.getDeployedProcessors.
-    The agent can use it to get the list of processors that are available to the user, for example to display them in a UI or to select one for execution or answer to a question that is searching for some processor. 
+    Returns all deployed processors visible (owned, public, shared with) to the user.
+    The agent can use it to get the list of processors that are available to the user.
+    This tool can be used to select a processor for execution or answer to a question that is searching for some processor. 
     
     Output:
     A list of DeployedProcessorViewModel JSON objects, each with the following properties (empty may be no processors or an error):
@@ -1280,15 +1268,15 @@ async def get_single_deployed_processor(
     oContext: Context = None,
 ) -> str:
     """
-    Returns a DeployedProcessorViewModel for a specific processor by id or name. The agent can use it to get details of a single processor. For example the user can ask information about a processor using the name.
-    This mirrors ProcessorsResource.getSingleDeployedProcessor.
+    Returns details for a specific processor by id or name. 
+    The agent can use it to get details of a single processor. 
 
     Inputs:
     sProcessorId: is the unique id of the processor. If provided, it will be used to retrieve the processor. If not provided, sProcessorName must be provided.
     sProcessorName: is the name of the processor. If sProcessorId is not provided, this will be used to retrieve the processor.
 
     Output:
-    A DeployedProcessorViewModel JSON object with the following properties: if the view model is empty there was an error.
+    A DeployedProcessorViewModel JSON object with the following properties:
 
  	String processorId: unique id of the processor
 	String processorName: unique name of the processor
@@ -1306,6 +1294,8 @@ async def get_single_deployed_processor(
 	readOnly: indicates if the processor is read-only
 	isDeploymentOngoing: indicates if the deployment is ongoing
 	lastUpdate: timestamp of the last update    
+
+    if the view model is empty there was an error.
 
     """
     sSessionToken = getSessionToken(oContext)
@@ -1336,14 +1326,10 @@ async def get_single_deployed_processor(
 @s_oMcpServer.tool()
 async def get_market_place_app_list(oFilters: dict = None, oContext: Context = None) -> str:
     """
-    Returns the marketplace processor list filtered by the given criteria. Not all the processors goes in the marketplace. The user can run processors directly by code or wasdi client using the json. Or instead can go in the marketplace where it will see a list of processors that has been added to the market.
-    The main difference is that a processor in the marketplace has also an UI. UI in WASDI is another optional json file, that become mandatory to show in the marketplace. The UI json maps each processor input parameter to a standard user control in the wasdi interface.
-    There are controls for input text, bounding boxes, date, select a product in the workspace, integers etc.
-    The ui json tells to wasdi the type of each parameter. Wasdi render an automatic ui. The user fills it. Wasdi re-created the parameters json and starts the application.
-    This API return all the applications available in the marketplace so with a user interface associated.
+    Returns the list of processors available in the marketplace and so that have an associated user interface (UI). 
+    The UI is a json that maps each processor input parameter to a standard user control in the wasdi interface (input text, bounding boxes, date, select a product in the workspace, integers etc.)
     The agent can use this to list search and explore these applications that have an UI.
-    The call is paginated.  This mirrors ProcessorsResource.getMarketPlaceAppList.
-    Note that this API return the friendlyName of the processor. This can be used to show a more user-friendly name in the UI, instead of the processorName that is unique but not always user-friendly. 
+    The call is paginated.    
     The friendlyName is set by the publisher of the processor when it is uploaded to the marketplace. The user may refer to some applications using the friendly name instead of the real name, take care!
     
     Inputs:
@@ -1395,7 +1381,7 @@ async def get_market_place_app_list(oFilters: dict = None, oContext: Context = N
 @s_oMcpServer.tool()
 async def get_market_place_app_detail(sProcessorName: str, oContext: Context = None) -> str:
     """
-    Returns the detailed marketplace information for a processor. See the docs of get_market_place_app_list to get a broader overview.
+    Returns the detailed marketplace information for a processor. 
     This mirrors ProcessorsResource.getMarketPlaceAppDetail.
 
     Inputs:
@@ -1440,42 +1426,30 @@ async def get_market_place_app_detail(sProcessorName: str, oContext: Context = N
 
 @s_oMcpServer.tool()
 async def run_processor(
-    sName: str,
-    sWorkspaceId: str,
-    sEncodedJson: str,
-    sParentProcessWorkspaceId: str = None,
-    bNotify: bool = None,
+    sProcessorName: str,
+    sExecutionWorkspaceId: str,
+    sProcessorsInputJson: str,
     oContext: Context = None,
 ) -> str:
     """
-    Runs a processor. This is a very important API.  
-    The agent can use this API to run a processor in WASDI, to start a processing algorithm. The user can ask to run a processor using the name and the parameters. 
-    The user can also ask the agent to run the processor but asking the Assistant to create the parameters. This is the important step: how to create the JSON parameters? There are different ways.
-    Each processor should have a sample parameters JSON. The agent can get it using the get_single_deployed_processor API and then modify it to create the parameters for the run. The agent can also use the get_market_place_app_detail API to get the sample parameters for a processor in the marketplace.
-    Often the processors have also an help where the parameters are explained. The agent can use the get_processor_help API to get the help for a processor and then create the parameters for the run.
-    So maybe the user can ask generate for me a false color image of the area of this place. We need to find an application that does it. There may be some knowledge in the documentation or we can get the list and 
-    search for similar names. Then get the helps and verify what they declare to do. If we find a processor, we can then understand the params from the sample or from the help and compose the json input file that must be passed to the application.
-    PLEASE DO NOT ALLOW too big bounding boxes. Assume a max of 2 square degrees. If the user asks for a bigger area, please ask to split it in smaller areas and run the processor multiple times. This is important to avoid running a processor that will consume too many resources. 
-    The agent can also use the get_process_status_by_id API to check the status of a process workspace after starting it, to see if it is still running or if it has completed.
-    The can get the logs of a process workspace using the get_processor_logs API, to see the output of the processor or to debug any issues that may have occurred during the execution of the processor.
-    Often the guide declares also the files generated, that can be checked once the app is DONE using get_names_of_products_by_workspace. The agent can use these APIs to check the output files generated by the processor and to verify if the expected files are present in the workspace.
-    All applications must be executed in a Workspace.
-    This mirrors ProcessorsResource.runPost.
-    
+    Runs a processor. The agent can use this API to execute a processor in WASDI. 
+    The user can ask to run a processor using the name and a description or indication of the parameters he wants.
+    The Agent need to understand the inputs required by the processor and compose a JSON string with the parameters that must be provided in sProcessorsInputJson input. 
+    To understand the parameters of the application, the agent can use the get_processor_help tool to read the processors documentation 
+    The agent can also use get_single_deployed_processor tool and read the paramsSample value to have an idea of the inputs required by the processor.
+    All applications must be executed in a Workspace: if the user does not specify it, the agent can create a new one or ask the user in wich workspace he wants to run the processor. The agent can use the get_workspaces tool to get the list of workspaces available to the user.    
 
     Inputs:
-    sName: is the unique name of the processor to run.
-    sWorkspaceId: is the unique id of the workspace in which the processor will run. The agent can use this information to specify the workspace where the processor should be executed.    
-    sEncodedJson: is the JSON string containing the parameters for the processor. The agent can use this information to provide the necessary input parameters for the processor execution. It is URL encoded.
-    sParentProcessWorkspaceId: is the unique id of the parent process workspace, if any. Usually is any, because is automatically set by the system when a parent trigger a child.
-    bNotify: is a boolean indicating if the user should be notified when the processor completes. If True, the user will receive a notification when the processor finishes executing. If False, no notification will be sent. If not specified, the default is False.
+    sProcessorName: is the unique name of the processor to run.
+    sExecutionWorkspaceId: is the unique id of the workspace in which the processor will run. The agent can use this information to specify the workspace where the processor should be executed.
+    sProcessorsInputJson: is a valid JSON string containing the parameters for the processor.
 
     Output:
     a RunningProcessorViewModel:
     String processorId = the unique id of the processor
     String name = the unique name of the processor
-    String processingIdentifier = the unique id of the process workspace that is running the processor
-    String status = the status of the process workspace. Can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. Should be CREATED at creation time.
+    String processingIdentifier = the unique id of the process workspace representing the processor execution. Use this to get the status of the processor execution and to get the logs of the processor.
+    String status = the status of the process workspace. Can be CREATED, RUNNING, WAITING, READY, DONE, ERROR, STOPPED. Should be CREATED at creation time then RUNNING.
     String jsonEncodedResult = the JSON encoded result of the processor execution. Empyt at creation time.
     String message = any message associated with the processor execution
 
@@ -1488,28 +1462,31 @@ async def run_processor(
     if not sSessionToken:
         raise ValueError("Missing x-session-token header")
 
-    if not sName:
-        raise ValueError("Missing processor name")
+    if not sProcessorName:
+        raise ValueError("Missing the name of the processor to run")
 
-    if not sWorkspaceId:
-        raise ValueError("Missing workspace id")
+    if not sExecutionWorkspaceId:
+        raise ValueError("Missing the workspace id in which the processor will run")
 
-    if sEncodedJson is None:
-        raise ValueError("Missing encoded json payload")
+    if sProcessorsInputJson is None:
+        raise ValueError("Missing processor's input json parameters")
 
     aoParams = {
-        "name": sName,
-        "workspace": sWorkspaceId,
-        "parent": sParentProcessWorkspaceId,
-        "notify": bNotify,
+        "name": sProcessorName,
+        "workspace": sExecutionWorkspaceId,
+        "parent": "",
+        "notify": False
     }
+
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
+
+    logging.info("run_processor: Running processor %s in workspace %s with parameters: %s", sProcessorName, sExecutionWorkspaceId, sProcessorsInputJson)
 
     async with httpx.AsyncClient() as oClient:
         oResponse = await oClient.post(
             f"{s_sWasdiApiUrl}/rest/processors/run",
             params=aoParams,
-            content=sEncodedJson,
+            content=sProcessorsInputJson,
             headers={"x-session-token": sSessionToken},
         )
         oResponse.raise_for_status()
@@ -1521,7 +1498,6 @@ async def run_processor(
 async def get_credits_for_run_paid_processor(sProcessorId: str, sEncodedJson: str, oContext: Context = None) -> str:
     """
     Returns the estimated credits needed for a processor run, if the processors is a paid one based on credits.
-    This mirrors ProcessorsResource.getCreditsForRun.
 
     Inputs:
     sProcessorId: is the unique id of the processor to run.
@@ -1556,17 +1532,17 @@ async def get_credits_for_run_paid_processor(sProcessorId: str, sEncodedJson: st
 @s_oMcpServer.tool()
 async def get_processor_help(sProcessorName: str, oContext: Context = None) -> str:
     """
-    Returns the help text for a processor. Is very important to understand what the processor does and how to use it. The help text is usually a markdown text that explains the processor, its inputs, outputs, and any other relevant information
-    like the files that will be generated. 
-    The agent can use this information to understand how to run the processor and what parameters to provide.
-    Can be very useful to be used before running a processor to understand what it does and how to use it.
-    This mirrors ProcessorsResource.help.
+    Returns the help description of a processor. 
+    The agent can use this to understand what the processor does, the inputs required so how to run it, and the outputs generated.
+    Help is a markdown text that explains procedure, inputs and outputs.
+    Use this tool to understand the parameters to provide the processor and format the correct JSON string to pass to the run_processor tool. 
+    The agent can also use get_single_deployed_processor tool and read the paramsSample value to have an idea of the inputs required by the processor.
 
     Inputs:
     sProcessorName: is the unique name of the processor.
 
     Output:
-    A string with the help text of the processor. The help text is usually a markdown text that explains the processor, its inputs, outputs, and any other relevant information like the files that will be generated.
+    The help of the processor in md format
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -1590,8 +1566,7 @@ async def get_processor_help(sProcessorName: str, oContext: Context = None) -> s
 @s_oMcpServer.tool()
 async def get_process_log_count(sProcessWorkspaceId: str, oContext: Context = None) -> str:
     """
-    Returns the count of log rows for a processor workspace. This is a node-based API.
-    This mirrors ProcessorsResource.countLogs.
+    Returns the count of log rows for a processor executed in WASDI.
 
     Inputs:
     sProcessWorkspaceId: is the unique id of the process workspace.
@@ -1624,8 +1599,8 @@ async def get_process_log_count(sProcessWorkspaceId: str, oContext: Context = No
 @s_oMcpServer.tool()
 async def get_processor_logs(sProcessWorkspaceId: str, iStartRow: int = None, iEndRow: int = None, oContext: Context = None) -> str:
     """
-    Returns a paginated list of log rows for a processor workspace. The agent can use this information to get the logs of a processor, for example to check the output of a process or to debug any issues that may have occurred during the execution of the process.
-    This mirrors ProcessorsResource.getLogs. This is a node-based API.
+    Returns a paginated list of log rows for a processor workspace. 
+    The agent can use this information to get the logs of a processor, for example to check the output of a process or to debug any issues that may have occurred during the execution of the process.
 
     Inputs:
     sProcessWorkspaceId: is the unique id of the process workspace.
@@ -1668,8 +1643,7 @@ async def get_processor_logs(sProcessWorkspaceId: str, iStartRow: int = None, iE
 @s_oMcpServer.tool()
 async def redeploy_processor(sProcessorId: str, sWorkspaceId: str, oContext: Context = None) -> str:
     """
-    Forces a redeploy of a processor. 
-    This mirrors ProcessorsResource.redeployProcessor.
+    Redeploy of a processor. 
 
     Inputs:
     sProcessorId: is the unique id of the processor to redeploy.
@@ -1705,7 +1679,6 @@ async def redeploy_processor(sProcessorId: str, sWorkspaceId: str, oContext: Con
 async def update_processor(sProcessorId: str, oUpdatedProcessorVM: dict, oContext: Context = None) -> str:
     """
     Updates the processor metadata.
-    This mirrors ProcessorsResource.updateProcessor.
 
     Inputs:
     sProcessorId: is the unique id of the processor to update.
@@ -1741,7 +1714,6 @@ async def update_processor(sProcessorId: str, oUpdatedProcessorVM: dict, oContex
 async def update_processor_details(sProcessorId: str, oUpdatedProcessorVM: dict, oContext: Context = None) -> str:
     """
     Updates processor details and payment fields. This API is used to update a bigger set of properties of the processor.
-    This mirrors ProcessorsResource.updateProcessorDetails.
 
     Inputs:
     sProcessorId: is the unique id of the processor to update.
@@ -1815,7 +1787,6 @@ async def update_processor_files(
     Updates the processor files using a local file path. When updating a processor, this API is used. The normal flow is that the user or the agent updates one or more files, that
     upload the updated code to WASDI that will trigger a redeploy of the application.
     If the file is only one can be directly uploaded. If are more than one we need a zip.
-    This mirrors ProcessorsResource.updateProcessorFiles.
 
     Inputs:
     sFilePath: is the local file path of the file to upload. It can be a single file or a zip file containing multiple files.
@@ -1862,7 +1833,6 @@ async def update_processor_files(
 async def download_processor(sProcessorId: str, oContext: Context = None) -> str:
     """
     Downloads a processor zip. The binary response is returned as base64 text.
-    This mirrors ProcessorsResource.downloadProcessor.
 
     Inputs:
     sProcessorId: is the unique id of the processor to download.
@@ -1895,7 +1865,6 @@ async def download_processor(sProcessorId: str, oContext: Context = None) -> str
 async def share_processor(sProcessorId: str, sUserId: str, sRights: str = None, oContext: Context = None) -> str:
     """
     Shares a processor with a user.
-    This mirrors ProcessorsResource.shareProcessor.
 
     Inputs:
     sProcessorId: is the unique id of the processor to share.
@@ -1938,7 +1907,6 @@ async def share_processor(sProcessorId: str, sUserId: str, sRights: str = None, 
 async def get_users_can_access_processor(sProcessorId: str, oContext: Context = None) -> str:
     """
     Returns the list of users who can access a processor.
-    This mirrors ProcessorsResource.getEnabledUsersSharedProcessor.
 
     Inputs:
     sProcessorId: is the unique id of the processor.
@@ -1970,9 +1938,8 @@ async def get_users_can_access_processor(sProcessorId: str, oContext: Context = 
 @s_oMcpServer.tool()
 async def get_processor_ui(sProcessorName: str, oContext: Context = None) -> str:
     """
-    Returns the JSON UI definition of a processor. see the docs of get_market_place_app_list to get a broader overview. 
+    Returns the JSON UI definition of a processor.
     The UI definition is a JSON that describes the user interface for the processor, including the input fields, types, and any other relevant information needed to render the UI for the processor.
-    This mirrors ProcessorsResource.getUI.
 
     Inputs:
     sProcessorName: is the unique name of the processor.
@@ -2004,12 +1971,12 @@ async def get_processor_build_logs(sProcessorId: str, oContext: Context = None) 
     """
     Returns the build logs for a processor. After the upload or every redeploy or update files, wasdi will rebuild the docker image of the processor. This API return the log of the docker build operation.
     This is very important to help users when they experience problems deploying their application. 
-    The agent can use it to get the docker build output and identify the real problem. Usually problems are due to missing or wrong python dependencies that are not correctly listed by the user in the pip.txt file.
-    Some problems come from the version of numpy and gdal. Since the images are pre-done templates, almost each has a fixed version of gdal so the compatibility with numpy is contrained. wasdi cleans the pip.txt filtering 
-    all the not existing packages, but also numpy and gdal that are installed by default. If you want to avoid this skip, in pip.txt you have to write not only numpy but numpy==VERSION: in this case will be kept.
-    This is to make it work, otherwise we have much more problems in builidng the right gdal. It works very often but sometimes create a 
-    big problem. Usually is ok to "play" with these versions, as usually these build logs suggests.
-    This mirrors ProcessorsResource.getProcessorBuildLogs.
+    The agent can use it to get the docker build output and identify the real problem. 
+    Usually problems are due to missing or wrong python dependencies that are not correctly listed by the user in the pip.txt file.
+    Some problems come from the version of numpy and gdal. 
+    Since the images are pre-done templates, almost each has a fixed version of gdal so the compatibility with numpy is contrained. 
+    WASDI cleans the pip.txt filtering  all the not existing packages, but also numpy and gdal that are installed by default. 
+    If you want to avoid this skip, in pip.txt you have to write not only numpy but numpy==VERSION: in this case will be kept.
 
     Inputs:
     sProcessorId: is the unique id of the processor.
@@ -2037,16 +2004,13 @@ async def get_processor_build_logs(sProcessorId: str, oContext: Context = None) 
 
 
 @s_oMcpServer.tool()
-async def download_product_by_name(sFileName: str, sWorkspaceId: str, sProcessObjId: str = None, sDisposition: str = None, oContext: Context = None) -> str:
+async def download_product_by_name(sFileName: str, sWorkspaceId: str, oContext: Context = None) -> str:
     """ 
-    Downloads a file by name from a workspace. Returns binary as hex text. This is a node-based API.
-    This mirrors CatalogResources.downloadEntryByName.
+    Downloads a file by name from a workspace. Returns binary as hex text.
 
     Inputs:
     sFileName: is the name of the file to download (always relative to workspace path, so usually just the file name)
     sWorkspaceId: is the unique id of the workspace from which to download the file
-    sProcessObjId: is an optional process workspace id. If provided, the download will be associated with this process workspace. Usually keep it null
-    sDisposition: is an optional string indicating the content disposition. If not provided, the default is "attachment". Can be "inline" or "attachment".
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2059,7 +2023,7 @@ async def download_product_by_name(sFileName: str, sWorkspaceId: str, sProcessOb
     if not sWorkspaceId:
         raise ValueError("Missing workspace id")
 
-    aoParams = {"filename": sFileName, "workspace": sWorkspaceId, "token": sSessionToken, "procws": sProcessObjId, "disposition": sDisposition}
+    aoParams = {"filename": sFileName, "workspace": sWorkspaceId, "token": sSessionToken, "procws": "", "disposition": "attachment"}
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
     sNodeUrl = await getNodeUrlForWorkspace(sWorkspaceId, sSessionToken)
@@ -2077,9 +2041,8 @@ async def download_product_by_name(sFileName: str, sWorkspaceId: str, sProcessOb
 @s_oMcpServer.tool()
 async def check_file_exists_in_node(sFileName: str, sWorkspaceId: str, oContext: Context = None) -> str:
     """
-    Checks if a file exists on the current node. This is a node-based API. Since add file to workspace does not check the real existence of the file, this API can be used to check if a file is really present on the node before trying to download it or use it in a processor. 
-    The file can aslo be not listed in the database as a product of the workspace.
-    This mirrors CatalogResources.checkFileByNode.
+    Checks if a file exists on the current node. 
+    This API can be used to check if a file is really present on the node before trying to download it or use it in a processor. 
 
     Inputs:
     sFileName: is the name of the file to check (always relative to workspace path, so usually just the file name)
@@ -2113,11 +2076,10 @@ async def check_file_exists_in_node(sFileName: str, sWorkspaceId: str, oContext:
 
 
 @s_oMcpServer.tool()
-async def check_download_product_availability_by_name(sFileName: str, sWorkspaceId: str, sProcessObjId: str = None, sVolumePath: str = None, oContext: Context = None) -> str:
+async def check_download_product_availability_by_name(sFileName: str, sWorkspaceId: str, oContext: Context = None) -> str:
     """
-    Checks if a file is available for download. This is a node-based API. The difference with check_file_exists_in_node 
-    is that this API checks if the file is available for download, which means that it checks if the file is present on the node and is declared as a product in the workspace
-    This mirrors CatalogResources.checkDownloadEntryAvailabilityByName.
+    Checks if a file is available for download. 
+    The difference with check_file_exists_in_node  is that this API checks if the file is present on the node and is declared as a product in the workspace
 
     Inputs:
     sFileName: is the name of the file to check (always relative to workspace path, so usually just the file name)
@@ -2144,7 +2106,7 @@ async def check_download_product_availability_by_name(sFileName: str, sWorkspace
     if not sWorkspaceId:
         raise ValueError("Missing workspace id")
 
-    aoParams = {"token": sSessionToken, "filename": sFileName, "workspace": sWorkspaceId, "procws": sProcessObjId, "volumepath": sVolumePath}
+    aoParams = {"token": sSessionToken, "filename": sFileName, "workspace": sWorkspaceId}
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
     sNodeUrl = await getNodeUrlForWorkspace(sWorkspaceId, sSessionToken)
@@ -2161,20 +2123,16 @@ async def check_download_product_availability_by_name(sFileName: str, sWorkspace
 
 
 @s_oMcpServer.tool()
-async def ingest_existing_file_in_workspace(sFileName: str, sWorkspaceId: str, sParentProcessWorkspaceId: str = None, sStyle: str = None, sPlatform: str = None, oContext: Context = None) -> str:
+async def ingest_existing_file_in_workspace(sFileName: str, sWorkspaceId: str, sStyle: str = None, oContext: Context = None) -> str:
     """
-    Ingests a file already existing in a workspace. This is a node-based API. Files can exist in the workspace even if are not listed in the database. Can be an app that creates a temp file
-    or a manual upload from a user for example. This API allows to verify that the file is there and add it to the db also.
-    This is a node-based API. 
-    This mirrors CatalogResources.ingestFileInWorkspace.
+    Ingests a file already existing in a workspace. Files can exist in the workspace even if are not listed in the database. 
+    Can happen if an app creates a temp file and does not call addFileToWasdi().
+    This API allows to verify that the file is there and add it to the db also.
 
     Inputs:
     sFileName: is the name of the file to ingest (always relative to workspace path, so usually just the file name)
     sWorkspaceId: is the unique id of the workspace in which to ingest the file
-    sParentProcessWorkspaceId: is an optional process workspace id. If provided, the ingest will be associated with this process workspace. Usually keep it null, is used by the library when triggers a child process
     sStyle: is an optional string indicating the name of the style of the file. If not provided, the default is null. This is used to specify the style of the file that can eventually be used to publish in WMS
-    sPlatform: is an optional string indicating the platform of the file. If not provided, the default is null. 
-
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2187,7 +2145,7 @@ async def ingest_existing_file_in_workspace(sFileName: str, sWorkspaceId: str, s
     if not sWorkspaceId:
         raise ValueError("Missing workspace id")
 
-    aoParams = {"file": sFileName, "workspace": sWorkspaceId, "parent": sParentProcessWorkspaceId, "style": sStyle, "platform": sPlatform}
+    aoParams = {"file": sFileName, "workspace": sWorkspaceId, "style": sStyle}
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
     sNodeUrl = await getNodeUrlForWorkspace(sWorkspaceId, sSessionToken)
@@ -2207,7 +2165,6 @@ async def ingest_existing_file_in_workspace(sFileName: str, sWorkspaceId: str, s
 async def get_product_properties(sFileName: str, sWorkspaceId: str, bGetChecksum: bool = None, oContext: Context = None) -> str:
     """
     Returns the properties of a product/file in a workspace. 
-    This mirrors CatalogResources.getProductProperties.
 
     Inputs:
     sFileName: is the name of the file to get properties for (always relative to workspace path, so usually just the file name)
@@ -2251,14 +2208,12 @@ async def get_product_properties(sFileName: str, sWorkspaceId: str, bGetChecksum
 
 
 @s_oMcpServer.tool()
-async def eo_data_search_get_count(sQuery: str, sProviders: str = None, oContext: Context = None) -> str:
+async def eo_data_search_get_count(sQuery: str, oContext: Context = None) -> str:
     """
-    Returns the total number of EO search results for a query.
-    This mirrors OpenSearchResource.count.
+    Returns the total number of search results for a query.
 
     Inputs:
     sQuery: is the search query string
-    sProviders: is an optional comma-separated list of providers to filter the search. use "AUTO" to automatically select providers.
 
     Output:
     The total count of search results
@@ -2271,7 +2226,7 @@ async def eo_data_search_get_count(sQuery: str, sProviders: str = None, oContext
     if not sQuery:
         raise ValueError("Missing query")
 
-    aoParams = {"query": sQuery, "providers": sProviders}
+    aoParams = {"query": sQuery, "providers": "AUTO"}
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
     async with httpx.AsyncClient() as oClient:
@@ -2288,7 +2243,6 @@ async def eo_data_search_get_count(sQuery: str, sProviders: str = None, oContext
 @s_oMcpServer.tool()
 async def eo_data_paginated_search(
     sQuery: str,
-    sProvider: str = None,
     sOffset: str = None,
     sLimit: str = None,
     sSortedBy: str = None,
@@ -2301,7 +2255,6 @@ async def eo_data_paginated_search(
 
     Inputs:
     sQuery: is the search query string
-    sProvider: is an optional comma-separated list of providers to filter the search. use "AUTO" to automatically select providers.
     sOffset: is an optional string indicating the offset for pagination. If not provided, the default is 0.
     sLimit: is an optional string indicating the limit for pagination. If not provided, the default is 10.
     sSortedBy: is an optional string indicating the field to sort by. If not provided, the default is "startDate".
@@ -2353,7 +2306,7 @@ async def eo_data_paginated_search(
         raise ValueError("Missing query")
 
     aoParams = {
-        "providers": sProvider,
+        "providers": "AUTO",
         "query": sQuery,
         "offset": sOffset,
         "limit": sLimit,
@@ -2395,14 +2348,13 @@ async def get_data_providers(oContext: Context = None) -> str:
 
 
 @s_oMcpServer.tool()
-async def eo_data_search_count_list(asQueries: list[str], sProviders: str = None, oContext: Context = None) -> str:
+async def eo_data_search_count_list(asQueries: list[str], oContext: Context = None) -> str:
     """
     Returns the total count of EO results for a list of queries.
     This mirrors OpenSearchResource.countList.
 
     Inputs:
     asQueries: is a list of search query strings. Usually only one is used
-    sProviders: is an optional comma-separated list of providers to filter the search. use "AUTO" to automatically select providers.
 
     Output:
     The total count of EO results for the provided queries.
@@ -2415,7 +2367,7 @@ async def eo_data_search_count_list(asQueries: list[str], sProviders: str = None
     if not asQueries:
         raise ValueError("Missing query list")
 
-    aoParams = {"providers": sProviders}
+    aoParams = {"providers": "AUTO"}
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
     async with httpx.AsyncClient() as oClient:
@@ -2431,14 +2383,13 @@ async def eo_data_search_count_list(asQueries: list[str], sProviders: str = None
 
 
 @s_oMcpServer.tool()
-async def eo_data_search_list(asQueries: list[str], sProvider: str = None, oContext: Context = None) -> str:
+async def eo_data_search_list(asQueries: list[str], oContext: Context = None) -> str:
     """
     Executes EO searches for a list of queries.
     This mirrors OpenSearchResource.searchList.
 
     Inputs:
     asQueries: is a list of search query strings. Usually only one is used
-    sProviders: is an optional comma-separated list of providers to filter the search. use "AUTO" to automatically select providers.
 
     Output:
     A list of JSON objects (QueryResultViewModel) containing the search results:
@@ -2485,7 +2436,7 @@ async def eo_data_search_list(asQueries: list[str], sProvider: str = None, oCont
     if not asQueries:
         raise ValueError("Missing query list")
 
-    aoParams = {"providers": sProvider}
+    aoParams = {"providers": "AUTO"}
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
     async with httpx.AsyncClient() as oClient:
@@ -2505,19 +2456,17 @@ async def share_file_to_workspace(
     sOriginWorkspaceId: str,
     sDestinationWorkspaceId: str,
     sProductName: str,
-    sParentProcessWorkspaceId: str = None,
     oContext: Context = None,
 ) -> str:
     """
-    Shares a file from one workspace to another. The file is copied to the destination workspace. The file is not moved, so it will still be available in the origin workspace.
-    This mirrors FileBufferResource.share.
+    Sends a file from one workspace to another. 
+    The file is copied to the destination workspace. 
+    The file is not moved, so it will still be available in the origin workspace.
 
     Inputs:
     sOriginWorkspaceId: is the unique id of the origin workspace
     sDestinationWorkspaceId: is the unique id of the destination workspace
     sProductName: is the name of the product/file to share
-    sParentProcessWorkspaceId: is an optional process workspace id. If provided, the share will be associated with this process workspace. Usually keep it null, is used by the library when triggers a child process
-
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2536,8 +2485,7 @@ async def share_file_to_workspace(
     aoParams = {
         "originWorkspaceId": sOriginWorkspaceId,
         "destinationWorkspaceId": sDestinationWorkspaceId,
-        "productName": sProductName,
-        "parent": sParentProcessWorkspaceId,
+        "productName": sProductName
     }
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
@@ -2554,8 +2502,9 @@ async def share_file_to_workspace(
 @s_oMcpServer.tool()
 async def import_product_in_wasdi(oImageImportViewModel: dict, oContext: Context = None) -> str:
     """
-    Triggers import/download of an image in WASDI.
-    This mirrors FileBufferResource.imageImport.
+    Triggers import of an image in WASDI. The oImageImportViewModel in input is a JSON returned by the EO Data Search API. 
+    It contains all the information needed to import the image in WASDI, including the file name, workspace id, and other metadata.
+    
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2582,7 +2531,6 @@ async def publish_product_band_in_wms(
     sWorkspaceId: str,
     sBand: str,
     sStyle: str = None,
-    sParentProcessWorkspaceId: str = None,
     oContext: Context = None,
 ) -> str:
     """
@@ -2607,8 +2555,7 @@ async def publish_product_band_in_wms(
         "fileUrl": sFileUrl,
         "workspace": sWorkspaceId,
         "band": sBand,
-        "style": sStyle,
-        "parent": sParentProcessWorkspaceId,
+        "style": sStyle
     }
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
@@ -2627,7 +2574,6 @@ async def publish_product_band_in_wms(
 async def get_application_packages_list(sName: str, oContext: Context = None) -> str:
     """
     Gets the list of packages in an application/processor.
-    This mirrors PackageManagerResource.getListPackages.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2652,7 +2598,6 @@ async def get_application_packages_list(sName: str, oContext: Context = None) ->
 async def get_application_environment_actions_list(sName: str, oContext: Context = None) -> str:
     """
     Gets the list of actions executed on an application/processor environment.
-    This mirrors PackageManagerResource.getEnvironmentActionsList.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2677,7 +2622,6 @@ async def get_application_environment_actions_list(sName: str, oContext: Context
 async def get_application_package_manager_version(sName: str, oContext: Context = None) -> str:
     """
     Gets the version of the Package Manager of an application/processor.
-    This mirrors PackageManagerResource.getManagerVersion.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2707,7 +2651,6 @@ async def update_application_environment_with_action(
 ) -> str:
     """
     Forces an update of the environment of a processor.
-    This mirrors PackageManagerResource.environmentUpdate.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2746,7 +2689,6 @@ async def reset_application_action_list(
 ) -> str:
     """
     Resets the action list for a processor.
-    This mirrors PackageManagerResource.resetActionList.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2780,7 +2722,6 @@ async def reset_application_action_list(
 async def printer_store_new_map(sPrinterViewModelJson: str, oContext: Context = None) -> str:
     """
     Stores a map configuration and returns a UUID for later retrieval.
-    This mirrors PrinterResource.storemap.
     Accepts a JSON string representing a PrinterViewModel with baseMap, center (lat/lng), and format (pdf/png) fields.
     """
     sSessionToken = getSessionToken(oContext)
@@ -2809,7 +2750,6 @@ async def printer_store_new_map(sPrinterViewModelJson: str, oContext: Context = 
 async def printer_print(sUUID: str, oContext: Context = None) -> str:
     """
     Retrieves a map image (PNG) or PDF document by UUID.
-    This mirrors PrinterResource.print.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -2835,12 +2775,10 @@ async def mosaic(
     sDestinationProductName: str,
     sWorkspaceId: str,
     sMosaicSettingJson: str,
-    sParentId: str = None,
     oContext: Context = None,
 ) -> str:
     """
     Triggers a mosaic operation on products.
-    This mirrors ProcessingResources.mosaic.
     Accepts a JSON string representing MosaicSetting.
     """
     sSessionToken = getSessionToken(oContext)
@@ -2860,7 +2798,6 @@ async def mosaic(
     aoParams = {
         "name": sDestinationProductName,
         "workspace": sWorkspaceId,
-        "parent": sParentId,
     }
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
@@ -2884,12 +2821,10 @@ async def regrid(
     sDestinationProductName: str,
     sWorkspaceId: str,
     sRegridSettingJson: str,
-    sParentId: str = None,
     oContext: Context = None,
 ) -> str:
     """
     Triggers a regrid operation on products.
-    This mirrors ProcessingResources.regrid.
     Accepts a JSON string representing RegridSetting.
     """
     sSessionToken = getSessionToken(oContext)
@@ -2909,7 +2844,6 @@ async def regrid(
     aoParams = {
         "name": sDestinationProductName,
         "workspace": sWorkspaceId,
-        "parent": sParentId,
     }
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
@@ -2934,12 +2868,10 @@ async def multiSubset(
     sDestinationProductName: str,
     sWorkspaceId: str,
     sMultiSubsetSettingJson: str,
-    sParentId: str = None,
     oContext: Context = None,
 ) -> str:
     """
     Triggers a multi-subset operation on products.
-    This mirrors ProcessingResources.multiSubset.
     Accepts a JSON string representing MultiSubsetSetting.
     """
     sSessionToken = getSessionToken(oContext)
@@ -2963,7 +2895,6 @@ async def multiSubset(
         "source": sSourceProductName,
         "name": sDestinationProductName,
         "workspace": sWorkspaceId,
-        "parent": sParentId,
     }
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
@@ -2992,7 +2923,6 @@ async def upload_snap_workflow_file(
 ) -> str:
     """
     Uploads a new SNAP Workflow XML file.
-    This mirrors WorkflowsResource.uploadFile.
     Accepts either a local file path or base64-encoded file content.
     """
     sSessionToken = getSessionToken(oContext)
@@ -3093,7 +3023,6 @@ async def update_snap_workflow_file(
 async def get_snap_workflow_xml(sWorkflowId: str, oContext: Context = None) -> str:
     """
     Retrieves the XML content of a workflow.
-    This mirrors WorkflowsResource.getXML.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -3122,7 +3051,6 @@ async def update_snap_workflow_xml(
 ) -> str:
     """
     Updates the XML content of a workflow.
-    This mirrors WorkflowsResource.updateXML.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -3160,7 +3088,6 @@ async def update_snap_workflow_params(
 ) -> str:
     """
     Updates the parameters of a workflow (name, description, public flag).
-    This mirrors WorkflowsResource.updateParams.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -3196,7 +3123,6 @@ async def update_snap_workflow_params(
 async def get_snap_workflows_by_user(oContext: Context = None) -> str:
     """
     Retrieves all workflows for the current user, including public and shared workflows.
-    This mirrors WorkflowsResource.getWorkflowsByUser.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -3222,7 +3148,6 @@ async def share_snap_workflow(
 ) -> str:
     """
     Shares a workflow with another user.
-    This mirrors WorkflowsResource.shareWorkflow.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -3261,7 +3186,6 @@ async def delete_snap_workflow_sharing(
 ) -> str:
     """
     Removes workflow sharing for a user.
-    This mirrors WorkflowsResource.deleteUserSharingWorkflow.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -3294,7 +3218,6 @@ async def delete_snap_workflow_sharing(
 async def get_snap_workflow_sharings(sWorkflowId: str, oContext: Context = None) -> str:
     """
     Retrieves all users with whom a workflow is shared.
-    This mirrors WorkflowsResource.getEnableUsersSharedWorkflow.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -3322,12 +3245,10 @@ async def run_snap_workflow(
     sWorkflowId: str,
     sWorkspaceId: str,
     sWorkflowViewModelJson: str,
-    sParentProcessWorkspaceId: str = None,
     oContext: Context = None,
 ) -> str:
     """
     Executes a workflow in a workspace.
-    This mirrors WorkflowsResource.run.
     Accepts a JSON string representing SnapWorkflowViewModel.
     """
     sSessionToken = getSessionToken(oContext)
@@ -3345,8 +3266,7 @@ async def run_snap_workflow(
         raise ValueError("Missing workflow view model JSON")
 
     aoParams = {
-        "workspace": sWorkspaceId,
-        "parent": sParentProcessWorkspaceId,
+        "workspace": sWorkspaceId
     }
     aoParams = {sKey: sValue for sKey, sValue in aoParams.items() if sValue is not None}
 
@@ -3373,7 +3293,6 @@ async def download_snap_workflow(
 ) -> str:
     """
     Downloads a workflow XML file.
-    This mirrors WorkflowsResource.download.
     """
     sSessionToken = getSessionToken(oContext)
 
@@ -3408,7 +3327,6 @@ async def download_snap_workflow(
 async def get_snap_workflow_by_name(sWorkflowName: str, oContext: Context = None) -> str:
     """
     Retrieves a workflow by its name.
-    This mirrors WorkflowsResource.getWorkflowByName.
     """
     sSessionToken = getSessionToken(oContext)
 

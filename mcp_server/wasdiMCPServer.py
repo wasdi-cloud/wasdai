@@ -4,6 +4,7 @@ import uvicorn
 import os
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+import urllib.parse
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp import Context
@@ -1469,7 +1470,10 @@ async def run_processor(
         raise ValueError("Missing the workspace id in which the processor will run")
 
     if sProcessorsInputJson is None:
-        raise ValueError("Missing processor's input json parameters")
+        raise ValueError("Missing json payload")
+
+    # Perform the URL encoding locally
+    sEncodedJson = urllib.parse.quote(sProcessorsInputJson)
 
     aoParams = {
         "name": sProcessorName,
@@ -1486,7 +1490,7 @@ async def run_processor(
         oResponse = await oClient.post(
             f"{s_sWasdiApiUrl}/rest/processors/run",
             params=aoParams,
-            content=sProcessorsInputJson,
+            content=sEncodedJson,
             headers={"x-session-token": sSessionToken},
         )
         oResponse.raise_for_status()

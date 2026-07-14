@@ -25,13 +25,6 @@ from llm_api_server.data.UserRepository import UserRepository
 from llm_api_server.business.Chat import Chat
 
 
-setupLogging()
-
-oApp = FastAPI(root_path="/assistant")
-
-X_SESSION_TOKEN_CTX: ContextVar[str] = ContextVar("x_session_token", default="")
-
-logging.info("Loading configuration")
 s_sConfigFilePath = os.getenv(
     "WASDI_CONFIG_PATH", 
     "C:\\WASDI\\GIT\\wasdai\\config.json"
@@ -41,6 +34,13 @@ if not (s_oConfig := WasdiConfig(s_sConfigFilePath)):
     logging.error("Failed to load configuration")
     raise RuntimeError(f"Could not load config from {s_sConfigFilePath}")
 
+setupLogging(s_oConfig.LLM_server.logLevel)
+
+logging.info("Loaded configuration")
+
+oApp = FastAPI(root_path="/assistant")
+
+X_SESSION_TOKEN_CTX: ContextVar[str] = ContextVar("x_session_token", default="")
 
 logging.info("Adding CORS middleware")
 s_asAllowedOrigins = s_oConfig.LLM_server.allowed_origins
@@ -73,7 +73,8 @@ else:
     logging.error("Failed to initialize LLM client")
     # raise RuntimeError("LLM client initialization failed")
 
-logging.info("Initializing the MCP client")
+logging.info("Initializing the MCP client with url " + s_oConfig.MCP_server.url)
+
 async def _inject_session_header(
     oRequest: MCPToolCallRequest,
     oHandler: Callable[[MCPToolCallRequest], Awaitable[Any]],

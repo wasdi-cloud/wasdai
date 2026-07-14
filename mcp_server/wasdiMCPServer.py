@@ -23,19 +23,21 @@ from mcp_server.modules.workspaces import register_workspace_tools
 from mcp_server.modules.developer import register_developer_tools
 from mcp_server.modules.catalog import register_catalog_tools
 
-setupLogging()
-
-# INITIALIZATION
-logging.info("Loading configuration")
 sConfigFilePath = os.getenv(
     "WASDI_CONFIG_PATH", 
     "C:\\WASDI\\GIT\\wasdai\\config.json"
 )
-s_sWasdiApiUrl = os.getenv("WASDI_API_URL", "https://www.wasdi.net/wasdiwebserver").rstrip("/")
 
 if not (s_oConfig := WasdiConfig(sConfigFilePath)):
     logging.error("Failed to load configuration")
     raise RuntimeError(f"Could not load config from {sConfigFilePath}")
+
+setupLogging(s_oConfig.MCP_server.logLevel)
+
+# INITIALIZATION
+logging.info("Loading configuration")
+s_sWasdiApiUrl = os.getenv("WASDI_API_URL", "https://www.wasdi.net/wasdiwebserver").rstrip("/")
+
 
 logging.info("Loading Embeddings")
 s_oEmbeddingConfig = getattr(s_oConfig, "embedding", None)

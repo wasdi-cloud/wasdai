@@ -1,9 +1,7 @@
 import logging.config
 
 
-def setupLogging():
-
-    sLOG_LEVEL = "INFO" # TODO: make it configurable via env variable or config file
+def setupLogging(sLOG_LEVEL = "INFO"):
 
     oLOGGING_CONFIG = {
         "version": 1,
@@ -27,6 +25,10 @@ def setupLogging():
                 "handlers": ["console"],
                 "level": sLOG_LEVEL,
             },
+            "mcp": { 
+                "level": sLOG_LEVEL,
+                "propagate": True 
+            },            
             "rio_tiler": { "level": "WARNING" },
             "rasterio": { "level": "WARNING" },
             "boto3": { "level": "WARNING" },

@@ -17,11 +17,11 @@ from utils.WasdiConfig import WasdiConfig
 from utils.LoggingConfiguration import setupLogging
 from ai_agent.RAGChain import RAGChain
 from utils.Utils import *
-from modules.workflows import register_workflow_tools
-from modules.applications import register_application_tools
-from modules.workspaces import register_workspace_tools
-from modules.developer import register_developer_tools
-from modules.catalog import register_catalog_tools
+from mcp_server.modules.workflows import register_workflow_tools
+from mcp_server.modules.applications import register_application_tools
+from mcp_server.modules.workspaces import register_workspace_tools
+from mcp_server.modules.developer import register_developer_tools
+from mcp_server.modules.catalog import register_catalog_tools
 
 setupLogging()
 

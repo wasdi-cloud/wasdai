@@ -67,6 +67,44 @@ s_oLLM = ChatOpenAI(
     streaming=True
 )
 
+# Allowed user-selectable models for /chat query parameter.
+SUPPORTED_CHAT_MODELS = {
+    "mistral-large-latest",
+    "mistral-medium-latest",
+    "mistral-small-latest",
+}
+
+
+def _resolve_model_name(sRequestedModel: str | None) -> str:
+    """Resolve requested model to a supported model or fallback to configured default."""
+    if not sRequestedModel:
+        return sModel
+
+    sCandidateModel = sRequestedModel.strip().lower()
+    if not sCandidateModel:
+        return sModel
+
+    if sCandidateModel in SUPPORTED_CHAT_MODELS:
+        return sCandidateModel
+
+    logging.warning(
+        f"chat. Unsupported requested model '{sRequestedModel}'. Falling back to default model '{sModel}'"
+    )
+    return sModel
+
+
+def _build_llm_client(sModelName: str) -> ChatOpenAI:
+    """Create a streaming ChatOpenAI client for the requested model."""
+    if sModelName == sModel:
+        return s_oLLM
+
+    return ChatOpenAI(
+        base_url=sEndpoint + "/v1",
+        api_key=sToken,
+        model=sModelName,
+        streaming=True,
+    )
+
 if s_oLLM:
     logging.info("LLM client initialized successfully")
 else:
@@ -220,6 +258,7 @@ def isTokenSecure(sSessionToken: str) -> bool:
 async def chat(
     sPrompt: Annotated[str, Body()],
     sChatId: Annotated[str, Query(alias="chatId")], 
+    sRequestedModel: Annotated[str | None, Query(alias="model")] = None,
     x_session_token: Annotated[str | None, Header()] = None,
 ):
     """
@@ -296,8 +335,12 @@ async def chat(
             # Get tools from MCP server
             s_oTools = await s_oMCPClient.get_tools()
 
+            sModelToUse = _resolve_model_name(sRequestedModel)
+            oLlmClient = _build_llm_client(sModelToUse)
+            logging.info(f"chat. Using model: {sModelToUse}")
+
             # RUN THE AGENT
-            oAgent = create_agent(model=s_oLLM, tools=s_oTools)
+            oAgent = create_agent(model=oLlmClient, tools=s_oTools)
 
             # stream the response chunks
             async def event_generator():

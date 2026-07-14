@@ -309,36 +309,42 @@ async def chat(
                     async for oEvent in oAgent.astream_events({"messages": aoMessages}, version="v2"):
                         # select only the messages where the LLM is actually typing text
                         sType = oEvent.get("event")
+
                         logging.debug(f"Interception event: {sType}")
-
-                        if sType in ["on_chat_model_stream", "on_chain_stream"]:
-                            
+                        
+                        if sType == "on_chat_model_stream":
                             oChunk = oEvent.get("data", {}).get("chunk")
-
-                            if oChunk:
-                                #logging.debug(f"Chunk extracted: {oChunk} (has content: {hasattr(oChunk, 'content') if oChunk else False})")
-                                sToken = ""
-
-                                if hasattr(oChunk, "content"):
-                                    sToken = oChunk.content
-                                elif isinstance(oChunk, str):
-                                    sToken = oChunk
-                                elif isinstance(oChunk, dict):
-                                    aoChunkMessages = oChunk.get("messages", [])
-                                    if aoChunkMessages:
-                                        oLastMsg = aoChunkMessages[-1] if isinstance(aoChunkMessages, list) else aoChunkMessages
-                                        if hasattr(oLastMsg, "content"):
-                                            sToken = oLastMsg.content
-                                        elif isinstance(oLastMsg, dict):
-                                            sToken = oLastMsg.get("content", "")
-                                elif isinstance(oChunk, list) and oChunk:
-                                    oLastMsg = oChunk[-1]
-                                    if hasattr(oLastMsg, "content"):
-                                        sToken = oLastMsg.content                                    
-
-                                if sToken and isinstance(sToken, str):
-                                    sFullResponse += sToken
-                                    yield sToken                                
+                            if oChunk and hasattr(oChunk, "content") and oChunk.content:
+                                sToken = oChunk.content
+                                sFullResponse += sToken
+                                yield sToken
+                        elif sType == "on_chain_stream":
+                            oChunk = oEvent.get("data", {}).get("chunk")
+                            if not oChunk or not isinstance(oChunk, dict):
+                                continue
+                                                        
+                            for sNodeName, oNodeContent in oChunk.items():
+                                if isinstance(oNodeContent, dict) and "messages" in oNodeContent:
+                                    aoNodeMsgs = oNodeContent["messages"]
+                                    if aoNodeMsgs:
+                                        # Prendiamo l'ultimo messaggio generato in questo specifico chunk
+                                        oLastMsg = aoNodeMsgs[-1] if isinstance(aoNodeMsgs, list) else aoNodeMsgs
+                                        
+                                        # Se è un AIMessageChunk, estraiamo il .content parziale
+                                        # Controlliamo il tipo di evento del nodo per assicurarci che sia lo stream del modello
+                                        if hasattr(oLastMsg, "content") and oLastMsg.content:
+                                            # Per evitare di ripetere l'intero storico ad ogni chunk della catena, 
+                                            # confrontiamo o verifichiamo se si tratta di un chunk incrementale.
+                                            # Se LangGraph restituisce l'accumulato, dobbiamo fare lo yield solo della novità.
+                                            sContent = oLastMsg.content
+                                            
+                                            # Se il contenuto estratto è più lungo di quello che abbiamo già inviato,
+                                            # prendiamo solo la parte nuova (tecnica del delta di streaming)
+                                            if isinstance(sContent, str) and len(sContent) > len(sFullResponse):
+                                                sToken = sContent[len(sFullResponse):]
+                                                if sToken:
+                                                    sFullResponse += sToken
+                                                    yield sToken                
                 except Exception as oE:
                     logging.error(f"chat. Agent streaming faild. {oE}")
                     if hasattr(oE, "exceptions"):

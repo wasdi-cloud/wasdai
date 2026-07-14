@@ -303,6 +303,8 @@ async def chat(
             async def event_generator():
                 sFullResponse = ""
 
+                yield "[The WASDI AI agent is processing your request...]\n"
+
                 try: 
                     async for oEvent in oAgent.astream_events({"messages": aoMessages}, version="v2"):
                         # select only the messages where the LLM is actually typing text

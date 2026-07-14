@@ -28,7 +28,8 @@ def setupLogging(sLOG_LEVEL = "INFO"):
             "mcp": { 
                 "level": sLOG_LEVEL,
                 "propagate": True 
-            },            
+            },
+            "pymongo": { "level": "WARNING" },
             "rio_tiler": { "level": "WARNING" },
             "rasterio": { "level": "WARNING" },
             "boto3": { "level": "WARNING" },

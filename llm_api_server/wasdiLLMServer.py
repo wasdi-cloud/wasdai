@@ -323,10 +323,20 @@ async def chat(
                                     sToken = oChunk.content
                                 elif isinstance(oChunk, str):
                                     sToken = oChunk
-                                elif isinstance(oChunk, dict) and "messages" in oChunk:
-                                    sToken = oChunk["messages"][-1].content if oChunk["messages"] else ""
+                                elif isinstance(oChunk, dict):
+                                    aoChunkMessages = oChunk.get("messages", [])
+                                    if aoChunkMessages:
+                                        oLastMsg = aoChunkMessages[-1] if isinstance(aoChunkMessages, list) else aoChunkMessages
+                                        if hasattr(oLastMsg, "content"):
+                                            sToken = oLastMsg.content
+                                        elif isinstance(oLastMsg, dict):
+                                            sToken = oLastMsg.get("content", "")
+                                elif isinstance(oChunk, list) and oChunk:
+                                    oLastMsg = oChunk[-1]
+                                    if hasattr(oLastMsg, "content"):
+                                        sToken = oLastMsg.content                                    
 
-                                if sToken:
+                                if sToken and isinstance(sToken, str):
                                     sFullResponse += sToken
                                     yield sToken                                
                 except Exception as oE:
@@ -334,7 +344,7 @@ async def chat(
                     if hasattr(oE, "exceptions"):
                         for i, sub_exc in enumerate(oE.exceptions):
                             logging.error(f"Sub-Exception #{i}: {type(sub_exc).__name__} - {sub_exc}")
-                    sError = "\n[The WASDI AI agent encountered an error while streaming]" # TODO: translation
+                    sError = "\n[The WASDI AI agent encountered an error while streaming]"
                     sFullResponse += sError
                     yield sError
                 finally:

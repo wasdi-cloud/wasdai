@@ -309,8 +309,11 @@ async def chat(
                     async for oEvent in oAgent.astream_events({"messages": aoMessages}, version="v2"):
                         # select only the messages where the LLM is actually typing text
                         sType = oEvent.get("event")
+                        logging.info(f"Interception event: {sType}")
+
                         if sType == "on_chat_model_stream":
                             oChunk = oEvent.get("data", {}).get("chunk")
+                            logging.info(f"Chunk extracted: {oChunk} (has content: {hasattr(oChunk, 'content') if oChunk else False})")
                             if oChunk and hasattr(oChunk, "content") and oChunk.content:
                                 sToken = oChunk.content
                                 sFullResponse += sToken

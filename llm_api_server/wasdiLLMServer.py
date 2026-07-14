@@ -309,15 +309,26 @@ async def chat(
                     async for oEvent in oAgent.astream_events({"messages": aoMessages}, version="v2"):
                         # select only the messages where the LLM is actually typing text
                         sType = oEvent.get("event")
-                        logging.info(f"Interception event: {sType}")
+                        logging.debug(f"Interception event: {sType}")
 
-                        if sType == "on_chat_model_stream":
+                        if sType in ["on_chat_model_stream", "on_chain_stream"]:
+                            
                             oChunk = oEvent.get("data", {}).get("chunk")
-                            logging.info(f"Chunk extracted: {oChunk} (has content: {hasattr(oChunk, 'content') if oChunk else False})")
-                            if oChunk and hasattr(oChunk, "content") and oChunk.content:
-                                sToken = oChunk.content
-                                sFullResponse += sToken
-                                yield sToken    # yield the text chunk directly to the client
+
+                            if oChunk:
+                                #logging.debug(f"Chunk extracted: {oChunk} (has content: {hasattr(oChunk, 'content') if oChunk else False})")
+                                sToken = ""
+
+                                if hasattr(oChunk, "content"):
+                                    sToken = oChunk.content
+                                elif isinstance(oChunk, str):
+                                    sToken = oChunk
+                                elif isinstance(oChunk, dict) and "messages" in oChunk:
+                                    sToken = oChunk["messages"][-1].content if oChunk["messages"] else ""
+
+                                if sToken:
+                                    sFullResponse += sToken
+                                    yield sToken                                
                 except Exception as oE:
                     logging.error(f"chat. Agent streaming faild. {oE}")
                     if hasattr(oE, "exceptions"):

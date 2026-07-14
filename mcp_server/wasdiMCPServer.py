@@ -100,11 +100,11 @@ s_oRAGChain = RAGChain(
 
 s_oMcpServer = FastMCP("wasdi-mcp-server", "0.1.0", transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
 
-register_workspace_tools(s_oMcpServer, s_sWasdiApiUrl)
-register_application_tools(s_oMcpServer, s_sWasdiApiUrl)
-register_developer_tools(s_oMcpServer, s_sWasdiApiUrl)
-register_workflow_tools(s_oMcpServer, s_sWasdiApiUrl)
-register_catalog_tools(s_oMcpServer, s_sWasdiApiUrl)
+#register_workspace_tools(s_oMcpServer, s_sWasdiApiUrl)
+#register_application_tools(s_oMcpServer, s_sWasdiApiUrl)
+#register_developer_tools(s_oMcpServer, s_sWasdiApiUrl)
+#register_workflow_tools(s_oMcpServer, s_sWasdiApiUrl)
+#register_catalog_tools(s_oMcpServer, s_sWasdiApiUrl)
 
 oApp = s_oMcpServer.streamable_http_app()
 

@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
@@ -19,15 +19,23 @@ class RAGChain:
         self.oPrompt = oPrompt
 
 
-    def invokeRAGChain(self, sQuery: str):
+    def invokeRAGChain(self, sQuery: str, oMetadataFilter: Optional[dict] = None):
 
         # pre-retrieval query rewriting
         sRewrittenQuery = self._preRetrievalQueryRewriting(sQuery, self.oLLM)
 
         logging.info(f"Rewritten query: {sRewrittenQuery.content}")
 
-        # retrieval of the relevant documents with post-retrieval re-ranking
-        aoDocs = self.oRetriever.invoke(sRewrittenQuery.content)
+        # if there is a filter, we apply it to the search
+        if oMetadataFilter:
+            aoDocs = self.oRetriever.vectorstore.similarity_search(
+                sRewrittenQuery.content,
+                k = self.oRetriever.search_kwargs.get("k", 4),
+                filter = oMetadataFilter
+            )
+        else:
+            # retrieval of the relevant documents 
+            aoDocs = self.oRetriever.invoke(sRewrittenQuery.content)
 
         # prompt template
         oFinalPrompt = self.oPrompt.format(context=aoDocs, query=sQuery)

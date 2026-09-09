@@ -216,9 +216,10 @@ async def wasdiHello() -> str:
         oResponse = await oClient.get(f"{s_sWasdiApiUrl}/rest/wasdi/hello")
         oResponse.raise_for_status()
         return oResponse.text
-    
-@s_oMcpServer.tool()
-async def searchWasdiDocs(sUserPrompt: str) -> str:
+
+
+# @s_oMcpServer.tool()
+# async def searchWasdiDocs(sUserPrompt: str) -> str:
     """
     Searches the internal WASDI documentation and knowledge base.
     Use this tool whenever the user asks for explanations about the system,
@@ -226,10 +227,62 @@ async def searchWasdiDocs(sUserPrompt: str) -> str:
     or general Earth Observation (EO) knowledge. The agent can use it also to understand better the functionalities of the other tools exposed.
     sUserPrompt is the question or query from the user that needs to be answered using the WASDI documentation.
     """
-    oResponse = s_oRAGChain.invokeRAGChain(sUserPrompt)
-    return oResponse.content
+#    oResponse = s_oRAGChain.invokeRAGChain(sUserPrompt)
+#    return oResponse.content
 
-    
+## NEW ENDPOINTS FOR DOCUMENTATION
+@s_oMcpServer.tool()
+async def searchPlatformUsage(sUserPrompt: str) -> str:
+    """
+    Searches WASDI platform user documentation.
+    Use this tool when the user asks how to USE the WASDI platform interface:
+    workspace management, navigation, account settings, general platform concepts, general Earth Observation (EO) knowledge,
+    how to use WASDI libraries to build one.
+    Do NOT use this for questions about developing or running EO applications,
+    or about WASDI's internal source code.
+    """
+    return s_oRAGChain.invokeRAGChain(
+        sUserPrompt,
+        oMetadataFilter={"$and": [
+            {"source_type": {"$eq": "user_doc"}},
+            {"component": {"$eq": "platform"}}
+        ]}
+    ).content
+
+
+@s_oMcpServer.tool()
+async def searchAppDevelopment(sUserPrompt: str) -> str:
+    """
+    Searches documentation about Earth Observation (EO) applications: what each
+    app does and their general parameters.
+
+    Use this tool when the user wants to find WHICH application matches a natural-language task
+    description (e.g. "an app that generates a false color image"), especially
+    when get_deployed_processors alone isn't enough to identify the right one
+    """
+    return s_oRAGChain.invokeRAGChain(
+        sUserPrompt,
+        oMetadataFilter={"component": {"$eq": "eo_app"}}
+    ).content
+
+
+@s_oMcpServer.tool()
+async def searchPlatformCodebase(sUserPrompt: str) -> str:
+    """
+    Searches WASDI platform's internal Java source code.
+    Use this tool only when a platform developer asks about WASDI's internal
+    implementation, backend architecture, or how a platform feature is built
+    internally.
+    Do NOT use this for questions about using the interface or developing EO apps.
+    """
+    return s_oRAGChain.invokeRAGChain(
+        sUserPrompt,
+        oMetadataFilter={"$and": [
+            {"source_type": {"$eq": "codebase"}},
+            {"component": {"$eq": "platform"}}
+        ]}
+    ).content
+
     
 @s_oMcpServer.tool()
 async def get_workspaces_by_user(oContext: Context = None) -> str:

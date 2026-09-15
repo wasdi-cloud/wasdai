@@ -139,6 +139,7 @@ s_oMCPClient = MultiServerMCPClient({
 MongoDBClient._s_oConfig = s_oConfig
 
 
+# Extract the token from the request headers
 def getSessionTokenFromHeaders(sXSessionToken: str | None, sAuthorization: str | None) -> str:
     """Return the raw legacy session ID from either supported client header."""
     if sXSessionToken:

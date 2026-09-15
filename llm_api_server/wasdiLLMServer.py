@@ -138,6 +138,27 @@ s_oMCPClient = MultiServerMCPClient({
 
 MongoDBClient._s_oConfig = s_oConfig
 
+
+def getSessionTokenFromHeaders(sXSessionToken: str | None, sAuthorization: str | None) -> str:
+    """Return the raw legacy session ID from either supported client header."""
+    if sXSessionToken:
+        return sXSessionToken.strip()
+
+    if not sAuthorization:
+        return ""
+
+    sBearerPrefix = "bearer "
+    sBearerToken = sAuthorization.strip()
+    if not sBearerToken.lower().startswith(sBearerPrefix):
+        return ""
+
+    sToken = sBearerToken[len(sBearerPrefix):].strip()
+    if not sToken.startswith("wasdi-"):
+        return ""
+
+    return sToken[len("wasdi-"):]
+
+
 @oApp.get("/hello")
 async def hello():
     """Endpoint to test if the server is up and running."""
@@ -145,12 +166,15 @@ async def hello():
 
 
 @oApp.get("/newChat")
-async def new_chat(x_session_token: Annotated[str | None, Header()] = None):
+async def new_chat(
+    x_session_token: Annotated[str | None, Header()] = None,
+    authorization: Annotated[str | None, Header()] = None,
+):
     """Endpoint to initialize a new chat session."""
     
     logging.info("newChat. Initializing new chat session")
 
-    sSessionToken = (x_session_token or "").strip()
+    sSessionToken = getSessionTokenFromHeaders(x_session_token, authorization)
 
     if not isTokenSecure(sSessionToken):
         logging.warning(f"newChat. Invalid or missing session token: {sSessionToken}")
@@ -260,13 +284,14 @@ async def chat(
     sChatId: Annotated[str, Query(alias="chatId")], 
     sRequestedModel: Annotated[str | None, Query(alias="model")] = None,
     x_session_token: Annotated[str | None, Header()] = None,
+    authorization: Annotated[str | None, Header()] = None,
 ):
     """
     Implements an interaction between a user and the ai agent. 
     :param sPrompt: the user's prompt
     :param sChatId: the unique identifier of the chat
     """
-    sSessionToken = (x_session_token or "").strip()
+    sSessionToken = getSessionTokenFromHeaders(x_session_token, authorization)
 
     logging.debug(f"chat. Received request with token: {sSessionToken} and prompt: {sPrompt}")
 
@@ -347,6 +372,7 @@ async def chat(
                 sFullResponse = ""
 
                 yield "[The WASDI AI agent is processing your request...]\n"
+                # yield "data: [The WASDI AI agent is processing your request...]\n\n" TO BE TESTED
 
                 try: 
                     async for oEvent in oAgent.astream_events({"messages": aoMessages}, version="v2"):
@@ -443,12 +469,13 @@ async def chat(
 async def getChat(
     sChatId: Annotated[str, Query(alias="chatId")], 
     x_session_token: Annotated[str | None, Header()] = None,
+    authorization: Annotated[str | None, Header()] = None,
 ):
     """
     Get all the messages exchanged in a chat between the user and the  AI assistant
     :param sChatId: the unique identifier of the chat
     """
-    sSessionToken = (x_session_token or "").strip()
+    sSessionToken = getSessionTokenFromHeaders(x_session_token, authorization)
 
     logging.debug(f"getChat. Received request with token: {sSessionToken}")
 
@@ -518,11 +545,12 @@ async def getChat(
 @oApp.get("/listChat")
 async def listChat(
     x_session_token: Annotated[str | None, Header()] = None,
+    authorization: Annotated[str | None, Header()] = None,
 ):
     """
     Get the list of all the chats of a user
     """
-    sSessionToken = (x_session_token or "").strip()
+    sSessionToken = getSessionTokenFromHeaders(x_session_token, authorization)
     logging.debug(f"listChat. Received request with token: {sSessionToken}")
     if not isTokenSecure(sSessionToken):
         logging.warning(f"listChat. Invalid or missing session token: {sSessionToken}")

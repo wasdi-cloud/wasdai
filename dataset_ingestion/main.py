@@ -102,6 +102,7 @@ def visualizeDbContent():
             # Each 'col' is a Collection object
             print(f" - {col.name}")
     collection = client.get_collection(name="embeddings")
+    print(f"Number of elements in the collection: {collection.count()}")
     # Peek at the first 5 items
     results = collection.peek(limit=100)
 
@@ -238,7 +239,7 @@ def main():
 
 if __name__ == "__main__":
 
-    iParameter = 1
+    iParameter = 2
 
     if iParameter == 1:
         main()

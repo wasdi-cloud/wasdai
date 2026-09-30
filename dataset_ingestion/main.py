@@ -1,7 +1,10 @@
 import json
 import logging
+from typing import Any, Dict, List, Tuple
 import chromadb
 from types import SimpleNamespace
+
+from llama_index.core import Document
 from dataset_ingestion.DatasetScanner import DatasetScanner
 from dataset_ingestion.ChromaStore import ChromaStore
 from utils.LoggingConfiguration import setupLogging
@@ -9,6 +12,11 @@ from dataset_ingestion.Embedder import Embedder
 from dataset_ingestion.parsers.DocumentParserFactory import DocumentParserFactory
 from collections import Counter
 from pathlib import Path
+from utils.WasdiConfig import WasdiConfig
+from langchain_openai import ChatOpenAI
+import os
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
 
 setupLogging()
 
@@ -114,7 +122,7 @@ def visualizeDbContent():
         sContent = results["documents"][i][:100] # Just the first 200 chars
         sCategory = results["metadatas"][i].get("category", "N/A")
         sFileName = results["metadatas"][i].get("sourcePath", "N/A")
-        print(f"{sFileName} | {sDocId[-15:]:<20} | {sCategory:<15} | {sContent}...")
+        print(f"{sFileName} | {sDocId} | {sCategory} | {sContent}...")
 
 
 def visualizeDbContentByExtension():
@@ -147,8 +155,97 @@ def visualizeDbContentByExtension():
 
     for ext, count in sorted(extension_counts.items(), key=lambda x: -x[1]):
         print(f"  {ext:<20} : {count}")
+
+
+def testFiltering(
+    sUserQuery: str = "platform architecture details",
+) -> List[Document]:
+    """
+    Directly tests metadata filtering on the Chroma vector store 
+    without triggering the LLM chain.
+    """
     
-            
+    s_sConfigFile = "C:\\WASDI\\GIT\\wasdai\\config_new.json"
+
+    if not (s_oConfig := WasdiConfig(s_sConfigFile)):
+        logging.error("Failed to load configuration")
+        raise RuntimeError(f"Could not load config from {s_sConfigFile}")
+
+    # Load Embeddings
+    s_oEmbeddingConfig = getattr(s_oConfig, "embedding", None)
+    s_sEmbeddingModelName = getattr(s_oEmbeddingConfig, "modelName", "BAAI/bge-m3")
+    s_sHuggingFaceToken = getattr(s_oEmbeddingConfig, "huggingface_token", "")
+
+    aoEmbeddingArgs: Dict[str, Any] = {
+        "model_name": s_sEmbeddingModelName
+    }
+
+    if s_sHuggingFaceToken:
+        os.environ["HF_TOKEN"] = s_sHuggingFaceToken
+        aoEmbeddingArgs["model_kwargs"] = {"token": s_sHuggingFaceToken}
+
+    if not (s_oEmbeddings := HuggingFaceEmbeddings(**aoEmbeddingArgs)):
+        logging.error("Failed to load embeddings")
+        raise RuntimeError("Could not load embeddings")
+
+    # Load Vector Store
+    s_sPersistDirectory = s_oConfig.chromaStore.persistDirectory
+    s_oVectorStore = Chroma(
+        collection_name="embeddings",
+        embedding_function=s_oEmbeddings,
+        persist_directory=s_sPersistDirectory
+    )
+
+    if not s_oVectorStore:
+        logging.error("Failed to load vector store")
+        raise RuntimeError(f"Could not load vector store from {s_sPersistDirectory}")
+
+    # Metadata Filter Specification
+    oMetadataFilter = {
+        "$and": [
+            {"source_type": {"$eq": "user_doc"}},
+            {"component": {"$eq": "eo_app"}}
+        ]
+    }
+
+    logging.info(f"Executing direct similarity search with filter: {oMetadataFilter}")
+
+    # Query vector store directly bypassing LLM chain
+    aoResultsWithScores: List[Tuple[Document, float]] = s_oVectorStore.similarity_search_with_score(
+        query=sUserQuery,
+        k=10,
+        filter=oMetadataFilter
+    )
+
+    if not aoResultsWithScores:
+        logging.warning("No documents returned matching the specified query and filter criteria.")
+        return []
+
+    # Validate returned metadata fields
+    logging.info(f"Retrieved {len(aoResultsWithScores)} documents matching filters:")
+    
+    aoFilteredDocuments: List[Document] = []
+    
+    for iIdx, (oDoc, fScore) in enumerate(aoResultsWithScores, start=1):
+        sSourceType = oDoc.metadata.get("source_type")
+        sComponent = oDoc.metadata.get("component")
+        sPageContent = oDoc.page_content
+        
+        logging.info(
+            f"\n--- [Document {iIdx}] ---"
+            f"\nScore: {fScore:.4f}"
+            f"\nsource_type: {sSourceType} | component: {sComponent}"
+            f"\nText Chunk Content:\n{sPageContent}"
+            f"\n{'-' * 40}"
+        )
+        
+        # Hard assertions to fail test if Chroma filter leaks incorrect metadata
+        assert sSourceType == "user_doc", f"Expected 'user_doc', got '{sSourceType}'"
+        assert sComponent == "eo_app", f"Expected 'platform', got '{sComponent}'"
+        
+        aoFilteredDocuments.append(oDoc)
+
+    return aoFilteredDocuments
 
 
 def main():
@@ -239,7 +336,7 @@ def main():
 
 if __name__ == "__main__":
 
-    iParameter = 2
+    iParameter = 4
 
     if iParameter == 1:
         main()
@@ -247,8 +344,5 @@ if __name__ == "__main__":
         visualizeDbContent()
     elif iParameter == 3:
         visualizeDbContentByExtension()
-
-        
-
-
-    
+    elif iParameter == 4:
+        testFiltering("flood archive")

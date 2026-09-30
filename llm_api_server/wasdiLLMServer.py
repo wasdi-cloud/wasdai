@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_mcp_adapters.interceptors import (MCPToolCallRequest,)
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from utils.LoggingConfiguration import setupLogging
 from utils.WasdiConfig import WasdiConfig
 from llm_api_server.MongoDBClient import MongoDBClient
@@ -25,11 +26,13 @@ from llm_api_server.data.UserRepository import UserRepository
 from llm_api_server.business.Chat import Chat
 
 
-s_sConfigFilePath = os.getenv(
+s_sConfigFilePath = "C:\\WASDI\\GIT\\wasdai\\config_new.json" 
+"""
+os.getenv(
     "WASDI_CONFIG_PATH", 
-    "C:\\WASDI\\GIT\\wasdai\\config.json"
+    "C:\\WASDI\\GIT\\wasdai\\config_new.json"
 )
-
+"""
 if not (s_oConfig := WasdiConfig(s_sConfigFilePath)):
     logging.error("Failed to load configuration")
     raise RuntimeError(f"Could not load config from {s_sConfigFilePath}")
@@ -52,16 +55,16 @@ oApp.add_middleware(
     allow_headers=["*"]
 )
 
-sEndpoint = s_oConfig.aiAgent.llm_endpoint
-sToken = s_oConfig.aiAgent.llm_token
-sModel = s_oConfig.aiAgent.llm_model
+sEndpoint = s_oConfig.aiAgent[0].llm_endpoint
+sToken = s_oConfig.aiAgent[0].llm_token
+sModel = s_oConfig.aiAgent[0].llm_model[0]
 
 logging.info("Initializing LLM client")
 logging.info(f"LLM Endpoint: {sEndpoint}")
 logging.info(f"LLM Model: {sModel}")
 
 s_oLLM = ChatOpenAI(
-    base_url=sEndpoint + "/v1",
+    base_url=sEndpoint,
     api_key=sToken,
     model=sModel,
     streaming=True
@@ -95,15 +98,38 @@ def _resolve_model_name(sRequestedModel: str | None) -> str:
 
 def _build_llm_client(sModelName: str) -> ChatOpenAI:
     """Create a streaming ChatOpenAI client for the requested model."""
+    if not sModelName:
+        logging.warning(f"_build_llm_client. Model {sModelName} not found. Falling back to default")
+        return s_oLLM
+
     if sModelName == sModel:
         return s_oLLM
 
-    return ChatOpenAI(
-        base_url=sEndpoint + "/v1",
-        api_key=sToken,
-        model=sModelName,
-        streaming=True,
-    )
+    sCandidateModel = sModelName.strip().lower()
+
+    if not sCandidateModel:
+        logging.info(f"_build_llm_client. Model {sModelName} not found after sanitazing string. Falling back to default")
+        return s_oLLM
+
+    for oModel in s_oConfig.aiAgent:
+        if sCandidateModel in oModel.llm_model:
+            if "gemini" in sModelName.lower():
+                return ChatGoogleGenerativeAI(
+                    model=sModel,
+                    google_api_key=oModel.llm_token,
+                    temperature=0
+                )
+            else:
+                return ChatOpenAI(
+                    base_url=oModel.llm_endpoint,
+                    api_key=oModel.llm_token,
+                    model=sCandidateModel,
+                    streaming=True,
+                )
+
+    logging.warning(f"_build_llm_client. Unsupported requested model '{sModelName}'. Falling back to default model '{sModel}'")
+    return s_oLLM
+    
 
 if s_oLLM:
     logging.info("LLM client initialized successfully")
@@ -361,12 +387,40 @@ async def chat(
             # Get tools from MCP server
             s_oTools = await s_oMCPClient.get_tools()
 
-            sModelToUse = _resolve_model_name(sRequestedModel)
-            oLlmClient = _build_llm_client(sModelToUse)
-            logging.info(f"chat. Using model: {sModelToUse}")
+            # sModelToUse = _resolve_model_name(sRequestedModel)
+            oLlmClient = _build_llm_client(sRequestedModel)
+            #logging.info(f"chat. Using model: {sRequestedModel}")
 
             # RUN THE AGENT
-            oAgent = create_agent(model=oLlmClient, tools=s_oTools)
+            sAgentSystemPrompt = """You are a highly capable, natural-sounding AI assistant for the WASDI platform.
+                Your job is to assist the user by either explaining concepts or executing actions using your tools.
+
+                CRITICAL RULES FOR INTENT & TOOL USAGE:
+
+                1. DISTINGUISH EXPLANATION VS. ACTION: 
+                - If the user asks "How do I...", "Can you explain...", or "What is...", they want an EXPLANATION. Do NOT execute action tools. (Instead, rely on your knowledge or document search tools).
+                - If the user explicitly asks you to DO something (e.g., "Create a workspace named X", "Deploy this"), ONLY THEN execute the tool.
+
+                2. NEVER GUESS REQUIRED PARAMETERS: 
+                - If the user asks you to execute an action (e.g., "Create a workspace") but DOES NOT provide required details (like the workspace name), DO NOT invent or guess a name. 
+                - Stop and ask the user: "What would you like to name your new workspace?"
+
+                3. DO THE WORK, DON'T EXPLAIN THE SCHEMAS: 
+                - When explicitly asked to execute an action, do it silently. Never output raw JSON, internal parameters, or tool names.
+
+                4. TRANSLATE RAW DATA: 
+                - Summarize tool outputs in natural language. Say "I have created your workspace" instead of dumping UUIDs."
+
+                5. STRICT CODE HALLUCINATION BAN (THE FIREWALL):
+                - When providing Python or Java code examples, ONLY use functions and classes explicitly found in your retrieved RAG documentation. 
+                - NEVER invent code.
+                - NEVER use your internal MCP tool names (e.g., 'upload_new_processor', 'create_new_workspace') as fake function names in Python/Java scripts. Your internal tools are NOT WASDI Python library functions. 
+                - If the RAG context does not contain the exact code snippet needed, explicitly say: "I don't have the specific code example for this in my documentation."
+            """
+            oAgent = create_agent(
+                model=oLlmClient, 
+                tools=s_oTools,
+                system_prompt=sAgentSystemPrompt)
 
             # stream the response chunks
             async def event_generator():

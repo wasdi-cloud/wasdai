@@ -23,10 +23,13 @@ from mcp_server.modules.workspaces import register_workspace_tools
 from mcp_server.modules.developer import register_developer_tools
 from mcp_server.modules.catalog import register_catalog_tools
 
-sConfigFilePath = os.getenv(
+sConfigFilePath = "C:\\WASDI\\GIT\\wasdai\\config_new.json" 
+"""
+os.getenv(
     "WASDI_CONFIG_PATH", 
-    "C:\\WASDI\\GIT\\wasdai\\config.json"
+    "C:\\WASDI\\GIT\\wasdai\\config_new.json"
 )
+"""
 
 if not (s_oConfig := WasdiConfig(sConfigFilePath)):
     logging.error("Failed to load configuration")
@@ -68,12 +71,12 @@ if not s_oVectorStore:
     raise RuntimeError(f"Could not load vector store from {s_oConfig.chromaStore.persistDirectory}")
 
 logging.info("Initializing the RAG chain")
-s_sEndpoint = s_oConfig.aiAgent.llm_endpoint
-s_sToken = s_oConfig.aiAgent.llm_token
-s_sModelName = s_oConfig.aiAgent.llm_model
+s_sEndpoint = s_oConfig.aiAgent[0].llm_endpoint
+s_sToken = s_oConfig.aiAgent[0].llm_token
+s_sModelName = s_oConfig.aiAgent[0].llm_model[0]
 
 s_oLLM = ChatOpenAI(
-    base_url=s_sEndpoint + "/v1",
+    base_url=s_sEndpoint,
     api_key=s_sToken,
     model=s_sModelName
 )
@@ -81,11 +84,15 @@ s_oLLM = ChatOpenAI(
 s_oRetriever = s_oVectorStore.as_retriever()
 s_oCompressionRetriever = s_oRetriever
 
-s_sPromptTemplate = """Use the context to answer the user's question. You are a WASDI and Earth Observation (EO) expert, you help users to use WASDI including interface, coding new apps, using existing apps. Use searchWasdiDocs to search the documentation.
-All functional execution tools require a unique alphanumeric sWorkspaceId. When a user refers to a workspace by its human-readable name, you MUST first invoke get_workspaces_by_user to list all available environments. Map the human-specified name to the correct workspaceId before calling any downstream data or execution tools.
-When a user asks to run a WASDI processor or application, do not attempt to guess or synthesize the input parameters. You must first invoke get_processor_ui or get_single_deployed_processor to inspect the sample parameter structures, and read get_processor_help to ensure semantic correctness before generating the execution payload.
-If you do not know the answer based on the context provided, tell the user that you do  not know the answer to their question based on the context provided 
-and that you are sorry.
+s_sPromptTemplate = """You are a senior technical expert for the WASDI platform. 
+Your goal is to answer the user's question based ONLY on the provided context.
+Rules:
+1. PRIORITIZE EXPLANATION: Always explain the concepts, architecture, or platform logic first. 
+2. NO GUESSING CODE: NEVER invent, guess, or hallucinate code, endpoints, or class names. 
+3. RESTRICT CODE GENERATION: Only provide code snippets if the user explicitly asks for code OR if the exact code snippet is present in the provided context.
+4. UNKNOWN ANSWERS: If the context does not contain the answer, say "Sorry, but I don't have enough information in the documentation to answer this.
+5. NO FOURTH WALL BREAKS: NEVER mention your internal tools, the MCP server, functions, or the fact that you are using retrieved context. Present the information naturally as if you simply know it. Do not say "According to the context" or "Based on the tool.
+"
 context: {context}
 question: {query}
 answer: """
@@ -159,9 +166,8 @@ async def searchPlatformUsage(sUserPrompt: str) -> str:
     Searches WASDI platform user documentation.
     Use this tool when the user asks how to USE the WASDI platform interface:
     workspace management, navigation, account settings, general platform concepts, general Earth Observation (EO) knowledge,
-    how to use WASDI libraries to build one.
-    Do NOT use this for questions about developing or running EO applications,
-    or about WASDI's internal source code.
+    how to use WASDI libraries to build an application.
+    The questions usually starts like "How do I...", "How can I....", "What's the..."
     """
     return s_oRAGChain.invokeRAGChain(
         sUserPrompt,
@@ -180,7 +186,7 @@ async def searchAppDevelopment(sUserPrompt: str) -> str:
 
     Use this tool when the user wants to find WHICH application matches a natural-language task
     description (e.g. "an app that generates a false color image"), especially
-    when get_deployed_processors alone isn't enough to identify the right one
+    when get_deployed_processors alone isn't enough to identify the right one.
     """
     return s_oRAGChain.invokeRAGChain(
         sUserPrompt,
@@ -205,8 +211,6 @@ async def searchPlatformCodebase(sUserPrompt: str) -> str:
         ]}
     ).content
 
-<<<<<<< HEAD
-=======
     
 @s_oMcpServer.tool()
 async def get_workspaces_by_user(oContext: Context = None) -> str:
@@ -3409,7 +3413,6 @@ async def get_snap_workflow_by_name(sWorkflowName: str, oContext: Context = None
         oResponse.raise_for_status()
         logging.debug("WASDI getWorkflowByName call completed with status %s", oResponse.status_code)
         return oResponse.text
->>>>>>> feature/embeddings_improvement
 
 if __name__ == "__main__":
     uvicorn.run(oApp, host="0.0.0.0", port=7000)

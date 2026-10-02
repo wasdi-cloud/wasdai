@@ -9,7 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain.agents import create_agent
-
+from langchain_core.messages import HumanMessage, AIMessage
 
 import os
 import logging
@@ -17,7 +17,7 @@ import asyncio
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from .RAGChain import RAGChain
+from ai_agent.RAGChain import RAGChain
 from utils.WasdiConfig import WasdiConfig
 
 logging.basicConfig(level=logging.INFO)
@@ -276,4 +276,36 @@ if __name__ == "__main__":
     sMCPPrompt1 = "Call the WASDI hello endpoint"
     sMCPPrompt2 = "Give me the list of my workspaces in WASDI"
     sMCPPrompt3 = "Give me the list of my workspaces' names in WASDI, together with the node id"
-    asyncio.run(promptMCP(sMCPPrompt2))
+    # asyncio.run(promptMCP(sMCPPrompt2))
+
+    oLLM = ChatOpenAI(
+        api_key="**token**", 
+        base_url="https://api.openai.com/v1", #"https://generativelanguage.googleapis.com/v1beta/openai/",
+        model="gpt-4o-mini", #"gemini-3.6-flash",
+        #temperature=0.7,
+        #max_retries=10
+    )
+
+    # first prompt
+    aoMessages = [
+        HumanMessage(content="What is an ETF?")
+    ]
+
+    print(f"User: {aoMessages[0].content}\n")
+
+
+    sReply1 = oLLM.invoke(aoMessages)
+
+    print(f"Model:\n{sReply1.content}\n")
+    print("-" * 50, "\n")
+
+    # we add the response to the history
+    aoMessages.append(sReply1) 
+    # second question
+    aoMessages.append(HumanMessage(content="can you please explain it better?"))
+
+    print(f"User: {aoMessages[-1].content}\n")
+
+    sReply2= oLLM.invoke(aoMessages)
+
+    print(f"Model:\n{sReply2.content}")

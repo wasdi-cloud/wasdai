@@ -113,19 +113,13 @@ def _build_llm_client(sModelName: str) -> ChatOpenAI:
 
     for oModel in s_oConfig.aiAgent:
         if sCandidateModel in oModel.llm_model:
-            if "gemini" in sModelName.lower():
-                return ChatGoogleGenerativeAI(
-                    model=sModel,
-                    google_api_key=oModel.llm_token,
-                    temperature=0
-                )
-            else:
-                return ChatOpenAI(
-                    base_url=oModel.llm_endpoint,
-                    api_key=oModel.llm_token,
-                    model=sCandidateModel,
-                    streaming=True,
-                )
+            return ChatOpenAI(
+                base_url=oModel.llm_endpoint,
+                api_key=oModel.llm_token,
+                model=sCandidateModel,
+                streaming=True,
+                max_retries=5
+            )
 
     logging.warning(f"_build_llm_client. Unsupported requested model '{sModelName}'. Falling back to default model '{sModel}'")
     return s_oLLM

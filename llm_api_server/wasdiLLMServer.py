@@ -16,7 +16,6 @@ from fastapi.responses import StreamingResponse
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_mcp_adapters.interceptors import (MCPToolCallRequest,)
 from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
 from utils.LoggingConfiguration import setupLogging
 from utils.WasdiConfig import WasdiConfig
 from llm_api_server.MongoDBClient import MongoDBClient

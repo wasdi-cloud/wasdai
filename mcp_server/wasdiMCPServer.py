@@ -23,13 +23,7 @@ from mcp_server.modules.workspaces import register_workspace_tools
 from mcp_server.modules.developer import register_developer_tools
 from mcp_server.modules.catalog import register_catalog_tools
 
-sConfigFilePath = "C:\\WASDI\\GIT\\wasdai\\config_new.json" 
-"""
-os.getenv(
-    "WASDI_CONFIG_PATH", 
-    "C:\\WASDI\\GIT\\wasdai\\config_new.json"
-)
-"""
+sConfigFilePath = os.getenv("WASDI_CONFIG_PATH", "C:\\WASDI\\GIT\\wasdai\\config_new.json")
 
 if not (s_oConfig := WasdiConfig(sConfigFilePath)):
     logging.error("Failed to load configuration")

@@ -25,13 +25,8 @@ from llm_api_server.data.UserRepository import UserRepository
 from llm_api_server.business.Chat import Chat
 
 
-s_sConfigFilePath = "C:\\WASDI\\GIT\\wasdai\\config_new.json" 
-"""
-os.getenv(
-    "WASDI_CONFIG_PATH", 
-    "C:\\WASDI\\GIT\\wasdai\\config_new.json"
-)
-"""
+s_sConfigFilePath = os.getenv("WASDI_CONFIG_PATH", "C:\\WASDI\\GIT\\wasdai\\config.json")
+
 if not (s_oConfig := WasdiConfig(s_sConfigFilePath)):
     logging.error("Failed to load configuration")
     raise RuntimeError(f"Could not load config from {s_sConfigFilePath}")
